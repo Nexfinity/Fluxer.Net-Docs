@@ -1,0 +1,135 @@
+:root {
+    --background: #1e1521;
+    --background-card: #271c2b;
+    --theme-background: #a96194;
+    --theme-alt-background: #51c594;
+    --attn-background: #39aac8;
+
+    --text: #a96194;
+    --theme-text: #1e1521;
+    --theme-alt-text: #1e1521;
+    --attn-text: #1e1521;
+}
+
+body {
+    background-color: var(--background);
+    color: var(--text);
+    font-family: "Cascadia Code", monospace;
+    font-size: 1.5rem;
+    padding-left: 1vw;
+    padding-right: 1vw;
+}
+
+.header {
+    display: inline-flex;
+}
+
+.site-title {
+    font-size: 3rem;
+    padding-right: 2vw;
+}
+
+.header-button {
+    margin-right: 2vw;
+    font-size: 2rem;
+    background-color: var(--theme-background);
+    color: var(--theme-text);
+    padding: 0.3vw;
+    border-radius: 3%;
+}
+
+.header-button.selected {
+    background-color: var(--theme-alt-background);
+}
+
+.left-sidebar {
+    width: fit-content;
+    max-width: 25vw;
+}
+
+.tutorial-header {
+    font-size: 2rem;
+    background-color: var(--theme-background);
+    color: var(--theme-text);
+    padding: 0.3vw;
+    border-radius: 3%;
+}
+
+.tutorial-item {
+    margin-left: 1.5vw;
+    margin-top: 0.5vh;
+}
+
+.content {
+    margin-top: 3vh;
+    display: flex;
+}
+
+.true-content {
+    margin-left: 1vw;
+    max-width: 50vw;
+}
+
+.widget {
+    background-color: var(--background-card);
+    padding: 0.8vw;
+    max-width: 30vw;
+    margin-bottom: 2vh;
+}
+
+.widget-name {
+    line-height: 50px;
+    height: 50px;
+    text-align: left;
+    font-size: 2.5rem;
+}
+
+.server-widget-online {
+    color: var(--theme-alt-background);
+}
+
+.join-action {
+    text-decoration: none;
+    float: right;
+    position: relative;
+    background-color: var(--attn-background);
+    color: var(--attn-text);
+    padding: 0.8vw;
+    border-radius: 3%;
+    bottom: 3vh;
+}
+
+a.header-button {
+    text-decoration: none;
+}
+
+span.widget-name {
+    display: inline-block;
+    vertical-align: middle;
+    line-height: normal;
+}
+
+code {
+    counter-reset: step;
+    counter-increment: step 0;
+}
+
+.shiki {
+    padding: 1rem;
+    border-radius: 2%;
+}
+
+code .line::before {
+    content: counter(step);
+    counter-increment: step;
+    width: 1rem;
+    margin-right: 1.5rem;
+    display: inline-block;
+    text-align: right;
+    color: rgba(115, 138, 148, .4)
+}
+
+@font-face {
+    font-family: "Cascadia Code";
+    src: url("/assets/fonts/CascadiaCode.ttf");
+}
