@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<head>
+    <title>Receiving Messages - Fluxer.Net Docs</title>
+    <meta charset="utf-8" />
+    <link rel="preload" as="style" href="/assets/defaults.css" />
+    <link rel="stylesheet" href="/assets/defaults.css" />
+    <link rel="icon" href="/assets/imgs/nexfinity.png" />
+</head>
+
+<body>
+    <template id="select">tutorial-fb-title tutorial-fb-message</template>
+    <template id="content">
+        <h1>Receiving Messages</h1>
+
+        <p>Now that your bot is connected, let's make it respond to messages by listening to gateway events.</p>
+
+        <h2>Understanding Gateway Events</h2>
+        <p>The <code>GatewayClient</code> provides real-time events through a WebSocket connection. These events fire whenever something happens on Fluxer, such as:</p>
+        <ul>
+            <li>A message is sent (<code>MessageCreate</code>)</li>
+            <li>A user's presence changes (<code>PresenceUpdate</code>)</li>
+            <li>A guild member joins (<code>GuildMemberAdd</code>)</li>
+            <li>And many more...</li>
+        </ul>
+
+        <h2>The READY Event</h2>
+        <p>Before your bot can start receiving events, it needs to wait for the <code>Ready</code> event, which signals that the initial connection is complete:</p>
+
+        <pre><code class="language-cs">using Fluxer.Net;
+using Serilog;
+
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Information()
+    .WriteTo.Console()
+    .CreateLogger();
+
+const string token = "YOUR_TOKEN_HERE";
+
+var config = new FluxerConfig
+{
+    Serilog = Log.Logger
+};
+
+var apiClient = new ApiClient(token, config);
+var gatewayClient = new GatewayClient(token, config);
+
+// Subscribe to the Ready event
+gatewayClient.Ready += (data) =>
+{
+    Log.Information("Bot is ready! Logged in as {Username}", data.User.Username);
+    Log.Information("Connected to {GuildCount} guilds", data.Guilds.Count);
+};
+
+await gatewayClient.ConnectAsync();
+
+Log.Information("Connecting to Fluxer...");
+await Task.Delay(-1);</code></pre>
+
+        <h2>Listening for Messages</h2>
+        <p>To respond to messages, subscribe to the <code>MessageCreate</code> event:</p>
+
+        <pre><code class="language-cs">gatewayClient.MessageCreate += async (data) =>
+{
+    var message = data.Message;
+
+    // Log the message
+    Log.Information("Message from {Author}: {Content}",
+        message.Author.Username,
+        message.Content);
+
+    // Don't respond to our own messages
+    if (message.Author.Id == data.User.Id)
+        return;
+
+    // Check if the message mentions the bot
+    if (message.Content.Contains("hello", StringComparison.OrdinalIgnoreCase))
+    {
+        // Send a reply
+        var reply = new Message
+        {
+            Content = $"Hello, {message.Author.Username}!"
+        };
+
+        await apiClient.SendMessage(message.ChannelId, reply);
+    }
+};</code></pre>
+
+        <h2>Complete Example</h2>
+        <p>Here's the complete code with both events:</p>
+
+        <pre><code class="language-cs">using Fluxer.Net;
+using Fluxer.Net.Data.Models;
+using Serilog;
+
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Information()
+    .WriteTo.Console()
+    .CreateLogger();
+
+const string token = "YOUR_TOKEN_HERE";
+
+var config = new FluxerConfig
+{
+    Serilog = Log.Logger
+};
+
+var apiClient = new ApiClient(token, config);
+var gatewayClient = new GatewayClient(token, config);
+
+gatewayClient.Ready += (data) =>
+{
+    Log.Information("Bot ready! Logged in as {Username}", data.User.Username);
+};
+
+gatewayClient.MessageCreate += async (data) =>
+{
+    var message = data.Message;
+
+    // Ignore our own messages
+    if (message.Author.Id == data.User.Id)
+        return;
+
+    if (message.Content.Contains("hello", StringComparison.OrdinalIgnoreCase))
+    {
+        var reply = new Message
+        {
+            Content = $"Hello, {message.Author.Username}!"
+        };
+
+        await apiClient.SendMessage(message.ChannelId, reply);
+    }
+};
+
+await gatewayClient.ConnectAsync();
+await Task.Delay(-1);</code></pre>
+
+        <h2>Testing Your Bot</h2>
+        <ol>
+            <li>Run your bot with <code>dotnet run</code></li>
+            <li>Send a message containing "hello" in any channel your bot can see</li>
+            <li>Your bot should respond with a greeting!</li>
+        </ol>
+
+        <h2>Important Notes</h2>
+        <ul>
+            <li><strong>Rate Limiting:</strong> Fluxer.Net includes built-in rate limiting to prevent your bot from being temporarily banned</li>
+            <li><strong>Error Handling:</strong> Always wrap API calls in try-catch blocks in production code</li>
+            <li><strong>Async/Await:</strong> Most Fluxer.Net methods are asynchronous and should be awaited</li>
+        </ul>
+
+        <h2>Next Steps</h2>
+        <p>Now that your bot can receive and respond to messages, let's create a more structured command system.</p>
+
+        <div class="navigation">
+            <a href="/tutorials/first-bot/1.create.html" class="prev-link">← Previous: Creating a Bot</a>
+            <a href="/tutorials/first-bot/3.commands.html" class="next-link">Next: Your First Command →</a>
+        </div>
+    </template>
+    <script src="/assets/scripts/loader.js"></script>
+
+    <script src="/assets/ext/shikijs/dist/index.unpkg.iife.js"></script>
+    <script>
+        shiki.setCDN("/assets/ext/shikijs");
+
+        shiki.loadTheme('themes/dracula.json').then(theme =>
+            shiki.getHighlighter({theme: theme, langs: ['cs', 'sh']}).then(hl => {
+                document.querySelectorAll('pre code').forEach(block => {
+                    const lang = block.className.replace('language-', '');
+                    const highlighted = hl.codeToHtml(block.textContent, { lang: lang });
+                    block.parentElement.outerHTML = highlighted;
+                });
+            })
+        );
+    </script>
+</body>

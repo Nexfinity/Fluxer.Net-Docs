@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<head>
+    <title>Your First Command - Fluxer.Net Docs</title>
+    <meta charset="utf-8" />
+    <link rel="preload" as="style" href="/assets/defaults.css" />
+    <link rel="stylesheet" href="/assets/defaults.css" />
+    <link rel="icon" href="/assets/imgs/nexfinity.png" />
+</head>
+
+<body>
+    <template id="select">tutorial-fb-title tutorial-fb-command</template>
+    <template id="content">
+        <h1>Your First Command</h1>
+
+        <p>In this tutorial, we'll create a proper command system with a command prefix and multiple commands.</p>
+
+        <h2>Command Structure</h2>
+        <p>A typical bot command consists of:</p>
+        <ul>
+            <li><strong>Prefix:</strong> A character or string that identifies bot commands (e.g., <code>!</code>, <code>?</code>, <code>/</code>)</li>
+            <li><strong>Command Name:</strong> The action to perform (e.g., <code>ping</code>, <code>help</code>, <code>info</code>)</li>
+            <li><strong>Arguments:</strong> Optional parameters for the command (e.g., <code>!ban @user spam</code>)</li>
+        </ul>
+
+        <h2>Basic Command Handler</h2>
+        <p>Let's create a simple command handler that responds to <code>!ping</code> and <code>!hello</code> commands:</p>
+
+        <pre><code class="language-cs">using Fluxer.Net;
+using Fluxer.Net.Data.Models;
+using Serilog;
+
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Information()
+    .WriteTo.Console()
+    .CreateLogger();
+
+const string token = "YOUR_TOKEN_HERE";
+const string prefix = "!";
+
+var config = new FluxerConfig
+{
+    Serilog = Log.Logger
+};
+
+var apiClient = new ApiClient(token, config);
+var gatewayClient = new GatewayClient(token, config);
+
+gatewayClient.Ready += (data) =>
+{
+    Log.Information("Bot ready! Logged in as {Username}", data.User.Username);
+};
+
+gatewayClient.MessageCreate += async (data) =>
+{
+    var message = data.Message;
+
+    // Ignore our own messages
+    if (message.Author.Id == data.User.Id)
+        return;
+
+    // Check if message starts with prefix
+    if (!message.Content.StartsWith(prefix))
+        return;
+
+    // Parse command and arguments
+    var content = message.Content[prefix.Length..];
+    var parts = content.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+    if (parts.Length == 0)
+        return;
+
+    var command = parts[0].ToLower();
+    var args = parts.Skip(1).ToArray();
+
+    // Handle commands
+    try
+    {
+        switch (command)
+        {
+            case "ping":
+                await HandlePingCommand(message);
+                break;
+
+            case "hello":
+                await HandleHelloCommand(message, args);
+                break;
+
+            case "help":
+                await HandleHelpCommand(message);
+                break;
+
+            default:
+                await SendMessage(message.ChannelId,
+                    $"Unknown command. Use `{prefix}help` for a list of commands.");
+                break;
+        }
+    }
+    catch (Exception ex)
+    {
+        Log.Error(ex, "Error handling command: {Command}", command);
+        await SendMessage(message.ChannelId, "An error occurred while processing your command.");
+    }
+};
+
+await gatewayClient.ConnectAsync();
+await Task.Delay(-1);
+
+// Command handlers
+async Task HandlePingCommand(Message message)
+{
+    await SendMessage(message.ChannelId, "Pong!");
+}
+
+async Task HandleHelloCommand(Message message, string[] args)
+{
+    var name = args.Length > 0 ? string.Join(" ", args) : message.Author.Username;
+    await SendMessage(message.ChannelId, $"Hello, {name}!");
+}
+
+async Task HandleHelpCommand(Message message)
+{
+    var helpText = $@"**Available Commands:**
+`{prefix}ping` - Check if the bot is responsive
+`{prefix}hello [name]` - Get a greeting
+`{prefix}help` - Show this help message";
+
+    await SendMessage(message.ChannelId, helpText);
+}
+
+// Helper method to send messages
+async Task SendMessage(ulong channelId, string content)
+{
+    var msg = new Message { Content = content };
+    await apiClient.SendMessage(channelId, msg);
+}</code></pre>
+
+        <h2>Understanding the Code</h2>
+
+        <h3>Command Parsing</h3>
+        <pre><code class="language-cs">// Check if message starts with prefix
+if (!message.Content.StartsWith(prefix))
+    return;
+
+// Remove prefix and split into parts
+var content = message.Content[prefix.Length..];
+var parts = content.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+var command = parts[0].ToLower();
+var args = parts.Skip(1).ToArray();</code></pre>
+
+        <p>This code:</p>
+        <ol>
+            <li>Checks if the message starts with the prefix</li>
+            <li>Removes the prefix from the message</li>
+            <li>Splits the message into words</li>
+            <li>Takes the first word as the command name</li>
+            <li>Takes remaining words as arguments</li>
+        </ol>
+
+        <h3>Command Routing</h3>
+        <p>The <code>switch</code> statement routes to the appropriate command handler based on the command name.</p>
+
+        <h3>Error Handling</h3>
+        <p>The try-catch block ensures that if a command handler throws an exception, the bot doesn't crash and can inform the user.</p>
+
+        <h2>Testing Your Commands</h2>
+        <p>Run your bot and try these commands in a channel:</p>
+        <ul>
+            <li><code>!ping</code> - Should respond with "Pong!"</li>
+            <li><code>!hello</code> - Should greet you by username</li>
+            <li><code>!hello World</code> - Should respond with "Hello, World!"</li>
+            <li><code>!help</code> - Should list all available commands</li>
+        </ul>
+
+        <h2>Advanced Command Example: User Info</h2>
+        <p>Let's add a more complex command that fetches and displays user information:</p>
+
+        <pre><code class="language-cs">case "userinfo":
+    await HandleUserInfoCommand(message, args);
+    break;
+
+// ...
+
+async Task HandleUserInfoCommand(Message message, string[] args)
+{
+    // Get the target user (mentioned user or command author)
+    ulong targetUserId;
+
+    if (message.Mentions != null && message.Mentions.Count > 0)
+    {
+        targetUserId = message.Mentions[0].Id;
+    }
+    else
+    {
+        targetUserId = message.Author.Id;
+    }
+
+    try
+    {
+        // Fetch user data from API
+        var user = await apiClient.GetUser(targetUserId);
+
+        // Build response with user information
+        var info = $@"**User Information**
+**Username:** {user.Username}
+**ID:** {user.Id}
+**Created:** {user.CreatedAt:MMM dd, yyyy}
+**Premium:** {(user.Premium > 0 ? "Yes" : "No")}";
+
+        await SendMessage(message.ChannelId, info);
+    }
+    catch (Exception ex)
+    {
+        Log.Error(ex, "Failed to fetch user info for {UserId}", targetUserId);
+        await SendMessage(message.ChannelId, "Failed to fetch user information.");
+    }
+}</code></pre>
+
+        <h2>Message Embeds</h2>
+        <p>For more visually appealing responses, you can use embeds:</p>
+
+        <pre><code class="language-cs">var embed = new Embed
+{
+    Title = "Bot Information",
+    Description = "I'm a bot built with Fluxer.Net!",
+    Color = 0x5865F2, // Blue color
+    Fields = new List<EmbedField>
+    {
+        new EmbedField
+        {
+            Name = "Library",
+            Value = "Fluxer.Net",
+            Inline = true
+        },
+        new EmbedField
+        {
+            Name = "Version",
+            Value = "1.0.0",
+            Inline = true
+        }
+    },
+    Footer = new EmbedFooter
+    {
+        Text = "Made with Fluxer.Net"
+    },
+    Timestamp = DateTime.UtcNow
+};
+
+var msg = new Message
+{
+    Content = "", // Can be empty when using embeds
+    Embeds = new List<Embed> { embed }
+};
+
+await apiClient.SendMessage(message.ChannelId, msg);</code></pre>
+
+        <h2>Best Practices</h2>
+
+        <h3>1. Use Async/Await Properly</h3>
+        <pre><code class="language-cs">// Good: Awaiting the API call
+await apiClient.SendMessage(channelId, message);
+
+// Bad: Not awaiting (fire and forget)
+apiClient.SendMessage(channelId, message); // Don't do this!</code></pre>
+
+        <h3>2. Handle Rate Limits</h3>
+        <p>Fluxer.Net has built-in rate limiting, but avoid sending too many messages in loops:</p>
+        <pre><code class="language-cs">// Bad: Will trigger rate limits
+for (int i = 0; i < 100; i++)
+{
+    await apiClient.SendMessage(channelId, new Message { Content = $"Spam {i}" });
+}
+
+// Good: Send one combined message
+var content = string.Join("\n", Enumerable.Range(0, 100).Select(i => $"Line {i}"));
+await apiClient.SendMessage(channelId, new Message { Content = content });</code></pre>
+
+        <h3>3. Validate User Input</h3>
+        <pre><code class="language-cs">async Task HandleBanCommand(Message message, string[] args)
+{
+    // Check if user has permissions (you'll need to implement permission checking)
+    // Check if arguments are valid
+    if (args.Length == 0)
+    {
+        await SendMessage(message.ChannelId, "Usage: !ban @user [reason]");
+        return;
+    }
+
+    // Validate mentioned user
+    if (message.Mentions == null || message.Mentions.Count == 0)
+    {
+        await SendMessage(message.ChannelId, "Please mention a user to ban.");
+        return;
+    }
+
+    // Proceed with ban...
+}</code></pre>
+
+        <h2>Next Steps</h2>
+        <p>Congratulations! You now have a working command bot. Here are some ideas to expand your bot:</p>
+        <ul>
+            <li>Add permission checking to restrict commands to certain users or roles</li>
+            <li>Implement cooldowns to prevent command spam</li>
+            <li>Add database storage for persistent data</li>
+            <li>Create moderation commands (kick, ban, mute)</li>
+            <li>Add fun commands (random jokes, games, etc.)</li>
+        </ul>
+
+        <p>Check out the reference documentation to learn about all available API methods and gateway events:</p>
+        <ul>
+            <li><a href="/guides/api-client.html">API Client Reference</a></li>
+            <li><a href="/guides/gateway-client.html">Gateway Client Reference</a></li>
+            <li><a href="/guides/events.html">Gateway Events Reference</a></li>
+        </ul>
+
+        <div class="navigation">
+            <a href="/tutorials/first-bot/2.messages.html" class="prev-link">← Previous: Receiving Messages</a>
+        </div>
+    </template>
+    <script src="/assets/scripts/loader.js"></script>
+
+    <script src="/assets/ext/shikijs/dist/index.unpkg.iife.js"></script>
+    <script>
+        shiki.setCDN("/assets/ext/shikijs");
+
+        shiki.loadTheme('themes/dracula.json').then(theme =>
+            shiki.getHighlighter({theme: theme, langs: ['cs', 'sh']}).then(hl => {
+                document.querySelectorAll('pre code').forEach(block => {
+                    const lang = block.className.replace('language-', '');
+                    const highlighted = hl.codeToHtml(block.textContent, { lang: lang });
+                    block.parentElement.outerHTML = highlighted;
+                });
+            })
+        );
+    </script>
+</body>

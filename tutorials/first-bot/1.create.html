@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<head>
+    <title>Creating Your First Bot - Fluxer.Net Docs</title>
+    <meta charset="utf-8" />
+    <link rel="preload" as="style" href="/assets/defaults.css" />
+    <link rel="stylesheet" href="/assets/defaults.css" />
+    <link rel="icon" href="/assets/imgs/nexfinity.png" />
+</head>
+
+<body>
+    <template id="select">tutorial-fb-title tutorial-fb-create</template>
+    <template id="content">
+        <h1>Creating Your First Bot</h1>
+
+        <p>Welcome to Fluxer.Net! This guide will walk you through creating your first bot using the Fluxer.Net library.</p>
+
+        <h2>Prerequisites</h2>
+        <ul>
+            <li>.NET 7.0 SDK or later</li>
+            <li>A Fluxer account</li>
+            <li>Basic knowledge of C# and async/await programming</li>
+        </ul>
+
+        <h2>Installation</h2>
+        <p>First, create a new console application and install the Fluxer.Net package:</p>
+
+        <pre><code class="language-sh">dotnet new console -n MyFluxerBot
+cd MyFluxerBot
+dotnet add package Fluxer.Net</code></pre>
+
+        <h2>Getting Your Token</h2>
+        <p>To connect your bot to Fluxer, you'll need an authentication token. There are two types of tokens you can use:</p>
+
+        <h3>User Token (User Bots)</h3>
+        <p>User tokens allow your bot to act as a regular user account. To obtain a user token:</p>
+        <ol>
+            <li>Log into your Fluxer account through the web or desktop client</li>
+            <li>Open the developer console (F12 in most browsers)</li>
+            <li>Navigate to Application > Local Storage > https://fluxer.app</li>
+            <li>Find the <code>token</code> key and copy its value</li>
+        </ol>
+
+        <p><strong>Warning:</strong> Never share your token with anyone. Anyone with your token can access your account.</p>
+
+        <h2>Setting Up Your Bot</h2>
+        <p>Now let's write the code to connect to Fluxer. Open <code>Program.cs</code> and replace its contents with:</p>
+
+        <pre><code class="language-cs">using Fluxer.Net;
+using Serilog;
+
+// Configure logging
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Information()
+    .WriteTo.Console()
+    .CreateLogger();
+
+// Your Fluxer token
+const string token = "YOUR_TOKEN_HERE";
+
+// Create configuration
+var config = new FluxerConfig
+{
+    Serilog = Log.Logger,
+    EnableRateLimiting = true
+};
+
+// Create the clients
+var apiClient = new ApiClient(token, config);
+var gatewayClient = new GatewayClient(token, config);
+
+// Connect to the gateway
+await gatewayClient.ConnectAsync();
+
+Log.Information("Bot is running! Press Ctrl+C to exit.");
+
+// Keep the application running
+await Task.Delay(-1);</code></pre>
+
+        <h2>Understanding the Code</h2>
+        <ul>
+            <li><strong>FluxerConfig:</strong> Configuration object that controls the behavior of both the API and Gateway clients</li>
+            <li><strong>ApiClient:</strong> Used for making REST API requests to Fluxer (sending messages, managing guilds, etc.)</li>
+            <li><strong>GatewayClient:</strong> Maintains a WebSocket connection for real-time events (messages, user updates, etc.)</li>
+        </ul>
+
+        <h2>Running Your Bot</h2>
+        <p>Replace <code>YOUR_TOKEN_HERE</code> with your actual token, then run:</p>
+
+        <pre><code class="language-sh">dotnet run</code></pre>
+
+        <p>You should see log messages indicating that your bot has successfully connected to Fluxer!</p>
+
+        <h2>Next Steps</h2>
+        <p>Your bot is now connected, but it doesn't do anything yet. In the next tutorial, we'll learn how to receive and respond to messages.</p>
+
+        <div class="navigation">
+            <a href="/tutorials/first-bot/2.messages.html" class="next-link">Next: Receiving Messages ’</a>
+        </div>
+    </template>
+    <script src="/assets/scripts/loader.js"></script>
+
+    <script src="/assets/ext/shikijs/dist/index.unpkg.iife.js"></script>
+    <script>
+        shiki.setCDN("/assets/ext/shikijs");
+
+        shiki.loadTheme('themes/dracula.json').then(theme =>
+            shiki.getHighlighter({theme: theme, langs: ['cs', 'sh']}).then(hl => {
+                document.querySelectorAll('pre code').forEach(block => {
+                    const lang = block.className.replace('language-', '');
+                    const highlighted = hl.codeToHtml(block.textContent, { lang: lang });
+                    block.parentElement.outerHTML = highlighted;
+                });
+            })
+        );
+    </script>
+</body>

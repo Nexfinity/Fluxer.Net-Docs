@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<head>
+    <title>Rate Limiting Guide - Fluxer.Net Docs</title>
+    <meta charset="utf-8" />
+    <link rel="preload" as="style" href="/assets/defaults.css" />
+    <link rel="stylesheet" href="/assets/defaults.css" />
+    <link rel="icon" href="/assets/imgs/nexfinity.png" />
+</head>
+
+<body>
+    <template id="select">about-header</template>
+    <template id="content">
+        <h1>Rate Limiting Guide</h1>
+
+        <p>Rate limiting is a crucial aspect of working with any API. Fluxer.Net includes built-in client-side rate limiting to help prevent your bot from being temporarily or permanently banned.</p>
+
+        <h2>What is Rate Limiting?</h2>
+
+        <p>Rate limiting is a mechanism that restricts the number of API requests you can make within a specific time window. Fluxer enforces rate limits to:</p>
+        <ul>
+            <li>Prevent API abuse</li>
+            <li>Ensure fair resource distribution</li>
+            <li>Maintain service stability</li>
+            <li>Protect against spam and malicious bots</li>
+        </ul>
+
+        <p>When you exceed a rate limit, the Fluxer API will return an HTTP 429 (Too Many Requests) response, and your bot may be temporarily blocked from making further requests.</p>
+
+        <h2>Types of Rate Limits</h2>
+
+        <p>Fluxer enforces several types of rate limits:</p>
+
+        <h3>1. Global Rate Limit</h3>
+        <p>Applies to all API requests across your entire application.</p>
+        <ul>
+            <li><strong>Limit:</strong> 50 requests per second</li>
+            <li><strong>Scope:</strong> All endpoints</li>
+        </ul>
+
+        <h3>2. Per-Route Rate Limits</h3>
+        <p>Different API endpoints have different rate limits.</p>
+        <ul>
+            <li><strong>Message endpoints:</strong> 5 requests per 5 seconds per channel</li>
+            <li><strong>Reaction endpoints:</strong> 1 request per 0.25 seconds per channel</li>
+            <li><strong>Guild/Channel create:</strong> Lower limits to prevent spam</li>
+        </ul>
+
+        <h3>3. Bucket-Based Limits</h3>
+        <p>Some endpoints share rate limit buckets based on resource IDs:</p>
+        <ul>
+            <li><strong>Per-Channel:</strong> Message operations in the same channel share a bucket</li>
+            <li><strong>Per-Guild:</strong> Guild management operations share a bucket</li>
+            <li><strong>Per-Webhook:</strong> Webhook executions are tracked separately</li>
+        </ul>
+
+        <h2>Fluxer.Net Rate Limiting</h2>
+
+        <p>Fluxer.Net implements client-side rate limiting using a <strong>sliding window algorithm</strong> to prevent hitting server-side rate limits.</p>
+
+        <h3>Enabling Rate Limiting</h3>
+
+        <p>Rate limiting is <strong>enabled by default</strong>:</p>
+
+        <pre><code class="language-cs">var config = new FluxerConfig
+{
+    EnableRateLimiting = true // Default value
+};
+
+var apiClient = new ApiClient(token, config);</code></pre>
+
+        <h3>How It Works</h3>
+
+        <ol>
+            <li><strong>Request Tracking:</strong> Each API request is tracked in a time-windowed bucket</li>
+            <li><strong>Limit Checking:</strong> Before making a request, Fluxer.Net checks if the limit would be exceeded</li>
+            <li><strong>Automatic Waiting:</strong> If the limit would be exceeded, the request automatically waits until it's safe to proceed</li>
+            <li><strong>Bucket Management:</strong> Separate buckets are maintained for different routes, channels, guilds, etc.</li>
+        </ol>
+
+        <pre><code class="language-cs">// Example: Sending multiple messages
+for (int i = 0; i < 10; i++)
+{
+    // Fluxer.Net automatically waits if needed
+    await apiClient.SendMessage(channelId, new Message
+    {
+        Content = $"Message {i}"
+    });
+    // No manual delay needed!
+}</code></pre>
+
+        <h2>Rate Limit Configuration</h2>
+
+        <p>The <code>RateLimitManager</code> is configured with predefined limits for different endpoint types:</p>
+
+        <h3>Message Endpoints</h3>
+        <pre><code class="language-cs">// Sending messages: 5 per 5 seconds per channel
+// Automatically handled by Fluxer.Net
+await apiClient.SendMessage(channelId, message);</code></pre>
+
+        <h3>Reaction Endpoints</h3>
+        <pre><code class="language-cs">// Adding reactions: 1 per 0.25 seconds (4/sec) per channel
+await apiClient.AddReaction(channelId, messageId, "👍");</code></pre>
+
+        <h3>Global Endpoints</h3>
+        <pre><code class="language-cs">// Most other endpoints: 50 per second globally
+await apiClient.GetCurrentUser();</code></pre>
+
+        <h2>Best Practices</h2>
+
+        <h3>1. Keep Rate Limiting Enabled</h3>
+        <p><strong>Never disable rate limiting in production:</strong></p>
+
+        <pre><code class="language-cs">// Good: Keep rate limiting enabled
+var config = new FluxerConfig
+{
+    EnableRateLimiting = true // Default
+};
+
+// Bad: Disabling rate limiting (only for testing)
+var config = new FluxerConfig
+{
+    EnableRateLimiting = false // Don't do this in production!
+};</code></pre>
+
+        <h3>2. Batch Operations</h3>
+        <p>Use bulk operations when available instead of making many individual requests:</p>
+
+        <pre><code class="language-cs">// Bad: Individual delete requests
+foreach (var messageId in messageIds)
+{
+    await apiClient.DeleteMessage(channelId, messageId);
+    // Will hit rate limits quickly
+}
+
+// Good: Bulk delete
+var bulkData = new { messages = messageIds.ToArray() };
+await apiClient.BulkDeleteMessages(channelId, bulkData);</code></pre>
+
+        <h3>3. Cache Data</h3>
+        <p>Cache frequently accessed data to avoid repeated API calls:</p>
+
+        <pre><code class="language-cs">// Bad: Fetching guild data repeatedly
+for (int i = 0; i < 100; i++)
+{
+    var guild = await apiClient.GetGuild(guildId);
+    // Process guild data
+}
+
+// Good: Cache guild data
+var guild = await apiClient.GetGuild(guildId);
+var cachedGuild = guild; // Store in memory/cache
+for (int i = 0; i < 100; i++)
+{
+    // Use cached data
+}</code></pre>
+
+        <h3>4. Implement Queues for High-Volume Operations</h3>
+        <p>For operations that might generate many requests, use a queue:</p>
+
+        <pre><code class="language-cs">using System.Collections.Concurrent;
+
+public class MessageQueue
+{
+    private readonly ConcurrentQueue<(ulong ChannelId, Message Message)> _queue = new();
+    private readonly ApiClient _apiClient;
+
+    public MessageQueue(ApiClient apiClient)
+    {
+        _apiClient = apiClient;
+        _ = ProcessQueueAsync(); // Start processing in background
+    }
+
+    public void Enqueue(ulong channelId, Message message)
+    {
+        _queue.Enqueue((channelId, message));
+    }
+
+    private async Task ProcessQueueAsync()
+    {
+        while (true)
+        {
+            if (_queue.TryDequeue(out var item))
+            {
+                try
+                {
+                    await _apiClient.SendMessage(item.ChannelId, item.Message);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error sending message: {ex.Message}");
+                }
+            }
+            else
+            {
+                await Task.Delay(100); // Wait before checking again
+            }
+        }
+    }
+}</code></pre>
+
+        <h3>5. Handle Rate Limit Errors Gracefully</h3>
+        <p>Even with client-side rate limiting, you should handle potential 429 errors:</p>
+
+        <pre><code class="language-cs">using Fluxer.Net.Extensions;
+
+async Task SendMessageSafely(ulong channelId, Message message)
+{
+    const int maxRetries = 3;
+    int retryCount = 0;
+
+    while (retryCount < maxRetries)
+    {
+        try
+        {
+            await apiClient.SendMessage(channelId, message);
+            return; // Success
+        }
+        catch (FluxerApiException ex) when (ex.Message.Contains("429"))
+        {
+            retryCount++;
+            Console.WriteLine($"Rate limited. Retry {retryCount}/{maxRetries}");
+
+            // Wait before retrying (exponential backoff)
+            await Task.Delay(TimeSpan.FromSeconds(Math.Pow(2, retryCount)));
+        }
+    }
+
+    Console.WriteLine("Failed to send message after retries");
+}</code></pre>
+
+        <h3>6. Avoid Loops with API Calls</h3>
+        <p>Be careful with loops that make API calls:</p>
+
+        <pre><code class="language-cs">// Bad: Spammy loop
+while (true)
+{
+    var messages = await apiClient.GetMessages(channelId);
+    // Process messages
+    // No delay - will hit rate limits!
+}
+
+// Good: Loop with delay
+while (true)
+{
+    var messages = await apiClient.GetMessages(channelId);
+    // Process messages
+    await Task.Delay(TimeSpan.FromSeconds(1)); // Wait between iterations
+}</code></pre>
+
+        <h2>Monitoring Rate Limits</h2>
+
+        <p>You can monitor rate limit behavior through logging:</p>
+
+        <pre><code class="language-cs">var logger = new LoggerConfiguration()
+    .MinimumLevel.Debug() // Set to Debug to see rate limit logs
+    .WriteTo.Console()
+    .CreateLogger();
+
+var config = new FluxerConfig
+{
+    Serilog = logger,
+    EnableRateLimiting = true
+};
+
+var apiClient = new ApiClient(token, config);
+
+// Fluxer.Net will log when it waits for rate limits</code></pre>
+
+        <h2>Rate Limit Headers</h2>
+
+        <p>Fluxer API responses include rate limit information in headers (not directly exposed in Fluxer.Net but handled internally):</p>
+
+        <ul>
+            <li><code>X-RateLimit-Limit</code> - Maximum requests allowed</li>
+            <li><code>X-RateLimit-Remaining</code> - Requests remaining in current window</li>
+            <li><code>X-RateLimit-Reset</code> - Unix timestamp when limit resets</li>
+            <li><code>X-RateLimit-Bucket</code> - Rate limit bucket identifier</li>
+        </ul>
+
+        <h2>Common Rate Limit Scenarios</h2>
+
+        <h3>Scenario 1: Welcome Messages</h3>
+        <pre><code class="language-cs">// Multiple users joining at once
+gatewayClient.GuildMemberAdd += async (data) =>
+{
+    // Safe: Rate limiting handles this automatically
+    await apiClient.SendMessage(welcomeChannelId, new Message
+    {
+        Content = $"Welcome, {data.Member.User.Username}!"
+    });
+};</code></pre>
+
+        <h3>Scenario 2: Bulk Moderation</h3>
+        <pre><code class="language-cs">// Deleting old messages
+var messages = await apiClient.GetMessages(channelId);
+var oldMessages = messages.Where(m => m.CreatedAt < DateTime.Now.AddDays(-7));
+
+// Good: Use bulk delete (max 100 messages at once)
+var chunks = oldMessages.Chunk(100);
+foreach (var chunk in chunks)
+{
+    await apiClient.BulkDeleteMessages(channelId,
+        new { messages = chunk.Select(m => m.Id).ToArray() });
+}</code></pre>
+
+        <h3>Scenario 3: Broadcasting Messages</h3>
+        <pre><code class="language-cs">// Sending the same message to multiple channels
+var channels = new[] { channelId1, channelId2, channelId3 };
+
+foreach (var channelId in channels)
+{
+    // Safe: Each channel has its own rate limit bucket
+    await apiClient.SendMessage(channelId, new Message
+    {
+        Content = "Important announcement!"
+    });
+}</code></pre>
+
+        <h2>Debugging Rate Limit Issues</h2>
+
+        <p>If you're experiencing rate limit issues:</p>
+
+        <ol>
+            <li><strong>Enable Debug Logging:</strong> Set Serilog to Debug level</li>
+            <li><strong>Check Your Code:</strong> Look for tight loops with API calls</li>
+            <li><strong>Monitor Request Patterns:</strong> Log when and how often you're making requests</li>
+            <li><strong>Test Incrementally:</strong> Start with small request volumes and scale up</li>
+        </ol>
+
+        <h2>Related Guides</h2>
+        <ul>
+            <li><a href="/guides/api-client.html">API Client Reference</a></li>
+            <li><a href="/guides/configuration.html">Configuration Guide</a></li>
+            <li><a href="/guides/gateway-client.html">Gateway Client Reference</a></li>
+        </ul>
+    </template>
+    <script src="/assets/scripts/loader.js"></script>
+
+    <script src="/assets/ext/shikijs/dist/index.unpkg.iife.js"></script>
+    <script>
+        shiki.setCDN("/assets/ext/shikijs");
+
+        shiki.loadTheme('themes/dracula.json').then(theme =>
+            shiki.getHighlighter({theme: theme, langs: ['cs']}).then(hl => {
+                document.querySelectorAll('pre code').forEach(block => {
+                    const lang = block.className.replace('language-', '');
+                    const highlighted = hl.codeToHtml(block.textContent, { lang: lang });
+                    block.parentElement.outerHTML = highlighted;
+                });
+            })
+        );
+    </script>
+</body>

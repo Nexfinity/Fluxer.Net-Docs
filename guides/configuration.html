@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<head>
+    <title>Configuration - Fluxer.Net Docs</title>
+    <meta charset="utf-8" />
+    <link rel="preload" as="style" href="/assets/defaults.css" />
+    <link rel="stylesheet" href="/assets/defaults.css" />
+    <link rel="icon" href="/assets/imgs/nexfinity.png" />
+</head>
+
+<body>
+    <template id="select">about-header</template>
+    <template id="content">
+        <h1>Fluxer.Net Configuration</h1>
+
+        <p>The <code>FluxerConfig</code> class controls the behavior of both the <code>ApiClient</code> and <code>GatewayClient</code>. This guide covers all configuration options and their usage.</p>
+
+        <h2>Basic Configuration</h2>
+
+        <pre><code class="language-cs">var config = new FluxerConfig
+{
+    // Default values shown
+    ReconnectAttemptDelay = 10,
+    FluxerApiBaseUrl = "https://api.fluxer.app/v{v}",
+    Version = 1,
+    FluxerGatewayUrl = "wss://gateway.fluxer.app/?v=1&encoding=json",
+    EnableRateLimiting = true
+};</code></pre>
+
+        <h2>Configuration Properties</h2>
+
+        <h3>ReconnectAttemptDelay</h3>
+        <p><strong>Type:</strong> <code>int</code><br>
+        <strong>Default:</strong> <code>10</code> seconds</p>
+
+        <p>Number of seconds to wait between gateway reconnection attempts. This prevents rapid reconnection attempts that could trigger rate limits.</p>
+
+        <pre><code class="language-cs">var config = new FluxerConfig
+{
+    ReconnectAttemptDelay = 5 // Reconnect every 5 seconds
+};</code></pre>
+
+        <h3>Serilog</h3>
+        <p><strong>Type:</strong> <code>Serilog.Core.Logger?</code><br>
+        <strong>Default:</strong> <code>null</code></p>
+
+        <p>Custom Serilog logger configuration. If <code>null</code>, the library creates a default console logger. Allows you to separate Fluxer.Net logs from your application logs or customize the output format.</p>
+
+        <pre><code class="language-cs">using Serilog;
+
+var fluxerLogger = new LoggerConfiguration()
+    .MinimumLevel.Debug()
+    .WriteTo.File("logs/fluxer-.txt", rollingInterval: RollingInterval.Day)
+    .WriteTo.Console()
+    .CreateLogger();
+
+var config = new FluxerConfig
+{
+    Serilog = fluxerLogger
+};</code></pre>
+
+        <h3>FluxerApiBaseUrl</h3>
+        <p><strong>Type:</strong> <code>string</code><br>
+        <strong>Default:</strong> <code>"https://api.fluxer.app/v{v}"</code></p>
+
+        <p>Base URL for the Fluxer REST API. The <code>{v}</code> placeholder is replaced with the <code>Version</code> property value. You typically don't need to change this unless you're using a proxy or testing with a local Fluxer instance.</p>
+
+        <pre><code class="language-cs">var config = new FluxerConfig
+{
+    FluxerApiBaseUrl = "https://my-proxy.example.com/fluxer/v{v}"
+};</code></pre>
+
+        <h3>Version</h3>
+        <p><strong>Type:</strong> <code>int</code><br>
+        <strong>Default:</strong> <code>1</code></p>
+
+        <p>API version number. Currently, only version 1 is supported by Fluxer.</p>
+
+        <h3>FluxerGatewayUrl</h3>
+        <p><strong>Type:</strong> <code>string</code><br>
+        <strong>Default:</strong> <code>"wss://gateway.fluxer.app/?v=1&encoding=json"</code></p>
+
+        <p>WebSocket gateway URL for real-time events. Must use JSON encoding (compression is not currently supported).</p>
+
+        <pre><code class="language-cs">var config = new FluxerConfig
+{
+    FluxerGatewayUrl = "wss://my-gateway.example.com/?v=1&encoding=json"
+};</code></pre>
+
+        <h3>HttpClient</h3>
+        <p><strong>Type:</strong> <code>HttpClient?</code><br>
+        <strong>Default:</strong> <code>null</code></p>
+
+        <p>Optional <code>HttpClient</code> instance for API requests. If <code>null</code>, a new <code>HttpClient</code> is created automatically. Providing your own allows for:</p>
+        <ul>
+            <li>Connection pooling across multiple API clients</li>
+            <li>Custom headers</li>
+            <li>Proxy configuration</li>
+            <li>Custom timeout values</li>
+        </ul>
+
+        <pre><code class="language-cs">var httpClient = new HttpClient
+{
+    Timeout = TimeSpan.FromSeconds(30)
+};
+
+// Configure proxy
+var handler = new HttpClientHandler
+{
+    Proxy = new WebProxy("http://proxy.example.com:8080"),
+    UseProxy = true
+};
+var httpClient = new HttpClient(handler);
+
+var config = new FluxerConfig
+{
+    HttpClient = httpClient
+};</code></pre>
+
+        <h3>IgnoredGatewayEvents</h3>
+        <p><strong>Type:</strong> <code>List&lt;string&gt;</code><br>
+        <strong>Default:</strong> <code>new List&lt;string&gt;()</code> (empty)</p>
+
+        <p>List of gateway event dispatch types to ignore. Useful for filtering out high-volume events your application doesn't need, which can reduce bandwidth and CPU usage.</p>
+
+        <pre><code class="language-cs">var config = new FluxerConfig
+{
+    IgnoredGatewayEvents = new List<string>
+    {
+        "PRESENCE_UPDATE",     // Don't receive presence updates
+        "TYPING_START",        // Don't receive typing indicators
+        "TYPING_STOP",         // Don't receive typing stop events
+        "MESSAGE_REACTION_ADD" // Don't receive reaction events
+    }
+};</code></pre>
+
+        <p><strong>Available events to ignore:</strong></p>
+        <ul>
+            <li><code>PRESENCE_UPDATE</code> - User status changes</li>
+            <li><code>TYPING_START</code> / <code>TYPING_STOP</code> - Typing indicators</li>
+            <li><code>MESSAGE_REACTION_ADD</code> / <code>MESSAGE_REACTION_REMOVE</code> - Message reactions</li>
+            <li><code>VOICE_STATE_UPDATE</code> - Voice channel changes</li>
+            <li><code>USER_SETTINGS_UPDATE</code> - User settings changes</li>
+            <li>And many more (see the <a href="/guides/events.html">Events Reference</a>)</li>
+        </ul>
+
+        <h3>Presence</h3>
+        <p><strong>Type:</strong> <code>PresenceUpdateGatewayData?</code><br>
+        <strong>Default:</strong> <code>null</code></p>
+
+        <p>Initial presence data to send when connecting to the gateway. Sets your bot's or user's online status and activity.</p>
+
+        <pre><code class="language-cs">using Fluxer.Net.Data.Enums;
+using Fluxer.Net.Gateway.Data;
+
+var config = new FluxerConfig
+{
+    Presence = new PresenceUpdateGatewayData(Status.DoNotDisturb)
+    {
+        // Custom status can be set here if supported
+    }
+};</code></pre>
+
+        <p><strong>Available status values:</strong></p>
+        <ul>
+            <li><code>Status.Online</code> - Green (Online)</li>
+            <li><code>Status.Idle</code> - Yellow (Away)</li>
+            <li><code>Status.DoNotDisturb</code> - Red (Do Not Disturb)</li>
+            <li><code>Status.Invisible</code> - Gray (Appear Offline)</li>
+        </ul>
+
+        <h3>EnableRateLimiting</h3>
+        <p><strong>Type:</strong> <code>bool</code><br>
+        <strong>Default:</strong> <code>true</code></p>
+
+        <p>Enable client-side rate limiting using a sliding window algorithm. When enabled, API requests automatically wait when approaching rate limits to prevent HTTP 429 responses from the server.</p>
+
+        <pre><code class="language-cs">var config = new FluxerConfig
+{
+    EnableRateLimiting = true // Recommended for production
+};</code></pre>
+
+        <p><strong>Important:</strong> Disabling rate limiting is not recommended for production bots, as it can lead to your bot being temporarily or permanently banned for exceeding rate limits.</p>
+
+        <h2>Complete Configuration Example</h2>
+
+        <pre><code class="language-cs">using Fluxer.Net;
+using Fluxer.Net.Data.Enums;
+using Fluxer.Net.Gateway.Data;
+using Serilog;
+
+// Configure custom logger
+var logger = new LoggerConfiguration()
+    .MinimumLevel.Information()
+    .WriteTo.Console()
+    .WriteTo.File(
+        path: "logs/fluxer-.txt",
+        rollingInterval: RollingInterval.Day,
+        retainedFileCountLimit: 7
+    )
+    .CreateLogger();
+
+// Configure HTTP client with custom settings
+var httpClient = new HttpClient
+{
+    Timeout = TimeSpan.FromSeconds(30)
+};
+
+// Create comprehensive configuration
+var config = new FluxerConfig
+{
+    // Logging
+    Serilog = logger,
+
+    // Network configuration
+    HttpClient = httpClient,
+    ReconnectAttemptDelay = 10,
+
+    // Rate limiting
+    EnableRateLimiting = true,
+
+    // Gateway event filtering
+    IgnoredGatewayEvents = new List<string>
+    {
+        "PRESENCE_UPDATE",
+        "TYPING_START",
+        "TYPING_STOP"
+    },
+
+    // Initial presence
+    Presence = new PresenceUpdateGatewayData(Status.Online)
+};
+
+// Initialize clients with configuration
+const string token = "YOUR_TOKEN_HERE";
+var apiClient = new ApiClient(token, config);
+var gatewayClient = new GatewayClient(token, config);</code></pre>
+
+        <h2>Environment-Specific Configuration</h2>
+
+        <p>It's common to use different configurations for development and production:</p>
+
+        <pre><code class="language-cs">var isDevelopment = Environment.GetEnvironmentVariable("ENVIRONMENT") == "Development";
+
+var config = new FluxerConfig
+{
+    Serilog = new LoggerConfiguration()
+        .MinimumLevel.Is(isDevelopment ? LogEventLevel.Debug : LogEventLevel.Information)
+        .WriteTo.Console()
+        .CreateLogger(),
+
+    ReconnectAttemptDelay = isDevelopment ? 5 : 10,
+
+    IgnoredGatewayEvents = isDevelopment
+        ? new List<string>() // Receive all events in development
+        : new List<string> { "PRESENCE_UPDATE", "TYPING_START" } // Filter in production
+};</code></pre>
+
+        <h2>Best Practices</h2>
+
+        <h3>1. Use Configuration Files</h3>
+        <p>Store configuration in <code>appsettings.json</code> or environment variables:</p>
+
+        <pre><code class="language-json">{
+  "Fluxer": {
+    "Token": "YOUR_TOKEN_HERE",
+    "Prefix": "!",
+    "ReconnectDelay": 10,
+    "IgnoredEvents": ["PRESENCE_UPDATE", "TYPING_START"]
+  }
+}</code></pre>
+
+        <h3>2. Never Hardcode Tokens</h3>
+        <pre><code class="language-cs">// Bad: Hardcoded token
+const string token = "real_token_here";
+
+// Good: Load from environment
+var token = Environment.GetEnvironmentVariable("FLUXER_TOKEN")
+    ?? throw new Exception("FLUXER_TOKEN environment variable not set");</code></pre>
+
+        <h3>3. Share HttpClient Instances</h3>
+        <p>If you create multiple <code>ApiClient</code> instances, share the same <code>HttpClient</code> to enable connection pooling:</p>
+
+        <pre><code class="language-cs">var sharedHttpClient = new HttpClient();
+
+var config1 = new FluxerConfig { HttpClient = sharedHttpClient };
+var config2 = new FluxerConfig { HttpClient = sharedHttpClient };
+
+var apiClient1 = new ApiClient(token1, config1);
+var apiClient2 = new ApiClient(token2, config2);</code></pre>
+
+        <h3>4. Monitor Your Logs</h3>
+        <p>Configure appropriate log levels for your environment and monitor for errors or warnings.</p>
+
+        <h2>Related Guides</h2>
+        <ul>
+            <li><a href="/guides/api-client.html">API Client Reference</a></li>
+            <li><a href="/guides/gateway-client.html">Gateway Client Reference</a></li>
+            <li><a href="/guides/rate-limiting.html">Rate Limiting Guide</a></li>
+        </ul>
+    </template>
+    <script src="/assets/scripts/loader.js"></script>
+
+    <script src="/assets/ext/shikijs/dist/index.unpkg.iife.js"></script>
+    <script>
+        shiki.setCDN("/assets/ext/shikijs");
+
+        shiki.loadTheme('themes/dracula.json').then(theme =>
+            shiki.getHighlighter({theme: theme, langs: ['cs', 'json']}).then(hl => {
+                document.querySelectorAll('pre code').forEach(block => {
+                    const lang = block.className.replace('language-', '');
+                    const highlighted = hl.codeToHtml(block.textContent, { lang: lang });
+                    block.parentElement.outerHTML = highlighted;
+                });
+            })
+        );
+    </script>
+</body>
