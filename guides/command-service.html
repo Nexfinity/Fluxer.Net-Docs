@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<head>
+    <title>Command Service - Fluxer.Net Docs</title>
+    <meta charset="utf-8" />
+    <link rel="preload" as="style" href="/assets/defaults.css" />
+    <link rel="stylesheet" href="/assets/defaults.css" />
+    <link rel="icon" href="/assets/imgs/nexfinity.png" />
+</head>
+
+<body>
+    <template id="select">about-header</template>
+    <template id="content">
+        <h1>Command Service</h1>
+
+        <p>The <code>CommandService</code> provides a Discord.Net-style framework for creating and executing text-based commands with automatic argument parsing, preconditions, and dependency injection support.</p>
+
+        <h2>Features</h2>
+        <ul>
+            <li><strong>Attribute-Based Commands:</strong> Define commands using simple attributes</li>
+            <li><strong>Automatic Type Parsing:</strong> Built-in support for string, int, bool, DateTime, TimeSpan, and enum parameters</li>
+            <li><strong>Optional Parameters:</strong> Support for optional parameters with default values</li>
+            <li><strong>Remainder Parameters:</strong> Capture multi-word arguments as a single string</li>
+            <li><strong>Command Aliases:</strong> Multiple names for the same command</li>
+            <li><strong>Preconditions:</strong> Check permissions before command execution</li>
+            <li><strong>Module System:</strong> Organize commands into logical modules</li>
+            <li><strong>Async/Sync Execution:</strong> Support for both synchronous and asynchronous command handlers</li>
+        </ul>
+
+        <h2>Quick Start</h2>
+
+        <h3>1. Create the CommandService</h3>
+        <pre><code class="language-cs">using Fluxer.Net.Commands;
+using Serilog;
+
+var commands = new CommandService(
+    prefixChar: '/',  // Commands start with /
+    logger: Log.Logger as Logger,  // Optional: for command logging
+    services: null  // Optional: for dependency injection
+);
+
+// Register all command modules from your assembly
+await commands.AddModulesAsync(Assembly.GetExecutingAssembly());</code></pre>
+
+        <h3>2. Create a Command Module</h3>
+        <pre><code class="language-cs">using Fluxer.Net.Commands;
+using Fluxer.Net.Commands.Attributes;
+
+public class BasicCommands : ModuleBase
+{
+    [Command("ping")]
+    [Summary("Check if the bot is responsive")]
+    public async Task PingCommand()
+    {
+        await ReplyAsync("Pong!");
+    }
+
+    [Command("hello")]
+    [Alias("hi", "hey")]
+    [Summary("Get a friendly greeting")]
+    public async Task HelloCommand()
+    {
+        await ReplyAsync($"Hello, <@{Context.User.Id}>!");
+    }
+
+    [Command("echo")]
+    [Summary("Echo back your message")]
+    public async Task EchoCommand([Remainder] string message)
+    {
+        await ReplyAsync(message);
+    }
+}</code></pre>
+
+        <h3>3. Execute Commands</h3>
+        <pre><code class="language-cs">gateway.MessageCreate += async messageData =>
+{
+    // Ignore messages without an author (webhooks, system messages)
+    if (messageData.Author == null)
+        return;
+
+    // Check if message starts with the command prefix
+    int argPos = 0;
+    if (messageData.Content?.StartsWith('/') == true)
+    {
+        argPos = 1; // Skip the prefix character
+
+        // Create command context
+        var context = new CommandContext(api, gateway, messageData);
+
+        // Execute the command
+        var result = await commands.ExecuteAsync(context, argPos);
+
+        // Handle the result
+        if (!result.IsSuccess)
+        {
+            Log.Warning("Command failed: {Error}", result.Error);
+        }
+    }
+};</code></pre>
+
+        <h2>Command Attributes</h2>
+
+        <h3>Command Attribute</h3>
+        <p>Marks a method as a command and specifies its name:</p>
+        <pre><code class="language-cs">[Command("commandname")]
+public async Task MyCommand()
+{
+    // Command implementation
+}</code></pre>
+
+        <h3>Alias Attribute</h3>
+        <p>Provides alternative names for a command:</p>
+        <pre><code class="language-cs">[Command("information")]
+[Alias("info", "i")]
+public async Task InfoCommand()
+{
+    await ReplyAsync("Bot information...");
+}</code></pre>
+
+        <h3>Summary and Remarks Attributes</h3>
+        <p>Add documentation to your commands:</p>
+        <pre><code class="language-cs">[Command("ban")]
+[Summary("Bans a user from the guild")]
+[Remarks("Requires administrator permissions")]
+public async Task BanCommand(ulong userId, [Remainder] string reason = "No reason provided")
+{
+    // Ban implementation
+}</code></pre>
+
+        <h2>Parameter Types</h2>
+
+        <p>The CommandService automatically parses these types:</p>
+        <ul>
+            <li><code>string</code> - Text input</li>
+            <li><code>int</code>, <code>long</code>, <code>ulong</code>, <code>uint</code> - Integer numbers</li>
+            <li><code>short</code>, <code>ushort</code>, <code>byte</code>, <code>sbyte</code> - Small integers</li>
+            <li><code>float</code>, <code>double</code>, <code>decimal</code> - Decimal numbers</li>
+            <li><code>bool</code> - Boolean (true/false)</li>
+            <li><code>DateTime</code> - Date and time</li>
+            <li><code>TimeSpan</code> - Time duration</li>
+            <li>Enums - Custom enumeration types</li>
+        </ul>
+
+        <h3>Example with Different Parameter Types</h3>
+        <pre><code class="language-cs">[Command("add")]
+[Summary("Add two numbers together")]
+public async Task AddCommand(int a, int b)
+{
+    await ReplyAsync($"{a} + {b} = {a + b}");
+}
+
+[Command("remind")]
+[Summary("Set a reminder")]
+public async Task RemindCommand(TimeSpan delay, [Remainder] string message)
+{
+    await ReplyAsync($"I'll remind you in {delay.TotalMinutes} minutes: {message}");
+    // Implementation to schedule reminder...
+}</code></pre>
+
+        <h3>Optional Parameters</h3>
+        <p>Parameters with default values are optional:</p>
+        <pre><code class="language-cs">[Command("greet")]
+[Summary("Greet someone (or yourself)")]
+public async Task GreetCommand(string name = "stranger")
+{
+    await ReplyAsync($"Hello, {name}!");
+}
+
+// Usage:
+// /greet - "Hello, stranger!"
+// /greet Alice - "Hello, Alice!"</code></pre>
+
+        <h3>Remainder Parameters</h3>
+        <p>Use the <code>[Remainder]</code> attribute to capture multi-word arguments:</p>
+        <pre><code class="language-cs">[Command("announce")]
+[Summary("Make an announcement")]
+public async Task AnnounceCommand([Remainder] string announcement)
+{
+    await ReplyAsync($"📢 **Announcement:** {announcement}");
+}
+
+// Usage:
+// /announce This is a multi-word announcement
+// announcement = "This is a multi-word announcement"</code></pre>
+
+        <h2>Module System</h2>
+
+        <h3>ModuleBase Class</h3>
+        <p>All command modules inherit from <code>ModuleBase</code>, which provides:</p>
+        <ul>
+            <li><code>Context</code> - Access to command context (user, channel, message, clients)</li>
+            <li><code>ReplyAsync()</code> - Convenience method to send messages</li>
+            <li><code>BeforeExecute()</code> - Hook called before command execution</li>
+            <li><code>AfterExecute()</code> - Hook called after command execution</li>
+        </ul>
+
+        <h3>Module Lifecycle Hooks</h3>
+        <pre><code class="language-cs">public class LoggedCommands : ModuleBase
+{
+    protected override void BeforeExecute(CommandInfo command)
+    {
+        Log.Information("Executing {Command} for user {UserId}",
+            command.Name, Context.User.Id);
+    }
+
+    protected override void AfterExecute(CommandInfo command)
+    {
+        Log.Information("Completed {Command}", command.Name);
+    }
+
+    [Command("test")]
+    public async Task TestCommand()
+    {
+        await ReplyAsync("Test command executed!");
+    }
+}</code></pre>
+
+        <h3>Organizing Commands into Modules</h3>
+        <pre><code class="language-cs">// Modules/ModerationCommands.cs
+public class ModerationCommands : ModuleBase
+{
+    [Command("kick")]
+    public async Task KickCommand(ulong userId, [Remainder] string reason = "No reason")
+    {
+        // Kick implementation
+    }
+
+    [Command("ban")]
+    public async Task BanCommand(ulong userId, [Remainder] string reason = "No reason")
+    {
+        // Ban implementation
+    }
+}
+
+// Modules/FunCommands.cs
+public class FunCommands : ModuleBase
+{
+    [Command("joke")]
+    public async Task JokeCommand()
+    {
+        // Joke implementation
+    }
+
+    [Command("roll")]
+    public async Task RollCommand(int sides = 6)
+    {
+        var result = Random.Shared.Next(1, sides + 1);
+        await ReplyAsync($"You rolled a {result}!");
+    }
+}</code></pre>
+
+        <h2>Command Context</h2>
+
+        <p>The <code>CommandContext</code> provides access to:</p>
+        <ul>
+            <li><code>Context.Client</code> - The ApiClient instance</li>
+            <li><code>Context.Gateway</code> - The GatewayClient instance</li>
+            <li><code>Context.Message</code> - The message that triggered the command</li>
+            <li><code>Context.User</code> - The user who executed the command</li>
+            <li><code>Context.ChannelId</code> - The channel where the command was executed</li>
+            <li><code>Context.GuildId</code> - The guild ID (null for DMs)</li>
+        </ul>
+
+        <h3>Using Context in Commands</h3>
+        <pre><code class="language-cs">[Command("userinfo")]
+[Summary("Get information about yourself or a mentioned user")]
+public async Task UserInfoCommand()
+{
+    // Get the target user (mentioned user or command author)
+    var targetUser = Context.Message.Mentions?.FirstOrDefault() ?? Context.User;
+
+    var embed = new Fluxer.Net.EmbedBuilder.EmbedBuilder()
+        .WithTitle("User Information")
+        .AddField("Username", targetUser.Username, inline: true)
+        .AddField("ID", targetUser.Id.ToString(), inline: true)
+        .AddField("Premium", targetUser.Premium > 0 ? "Yes" : "No", inline: true)
+        .WithColor(0x5865F2)
+        .Build();
+
+    await Context.Client.SendMessage(Context.ChannelId, new()
+    {
+        Embeds = new List<Embed> { embed }
+    });
+}</code></pre>
+
+        <h2>Error Handling</h2>
+
+        <p>The <code>ExecuteAsync</code> method returns an <code>IResult</code> that indicates success or failure:</p>
+
+        <pre><code class="language-cs">var result = await commands.ExecuteAsync(context, argPos);
+
+if (!result.IsSuccess)
+{
+    switch (result.ErrorType)
+    {
+        case CommandError.UnknownCommand:
+            // Command not found - usually just ignore
+            break;
+
+        case CommandError.BadArgCount:
+            await api.SendMessage(messageData.ChannelId, new()
+            {
+                Content = $"❌ Error: {result.Error}"
+            });
+            break;
+
+        case CommandError.ParseFailed:
+            await api.SendMessage(messageData.ChannelId, new()
+            {
+                Content = $"❌ Invalid parameter: {result.Error}"
+            });
+            break;
+
+        case CommandError.UnmetPrecondition:
+            await api.SendMessage(messageData.ChannelId, new()
+            {
+                Content = $"⛔ {result.Error}"
+            });
+            break;
+
+        default:
+            await api.SendMessage(messageData.ChannelId, new()
+            {
+                Content = $"❌ An error occurred: {result.Error}"
+            });
+            break;
+    }
+}</code></pre>
+
+        <h2>Run Modes</h2>
+
+        <p>Commands can execute synchronously or asynchronously:</p>
+
+        <pre><code class="language-cs">// Sync mode (default): Waits for command to complete
+[Command("sync")]
+public async Task SyncCommand()
+{
+    await Task.Delay(1000);
+    await ReplyAsync("Completed!");
+}
+
+// Async mode: Fires and forgets (doesn't wait)
+[Command("async", RunMode = RunMode.Async)]
+public async Task AsyncCommand()
+{
+    await Task.Delay(5000);
+    await ReplyAsync("This message appears after 5 seconds");
+}</code></pre>
+
+        <h2>Searching for Commands</h2>
+
+        <p>You can search for commands by name or alias:</p>
+
+        <pre><code class="language-cs">var pingCommand = commands.Search("ping");
+if (pingCommand != null)
+{
+    Log.Information("Found command: {Name} with {ParamCount} parameters",
+        pingCommand.Name, pingCommand.Parameters.Count);
+}
+
+// Access all registered commands
+foreach (var command in commands.Commands)
+{
+    Log.Information("Command: {Name} ({Aliases})",
+        command.Name, string.Join(", ", command.Aliases));
+}</code></pre>
+
+        <h2>Advanced Example: Help Command</h2>
+
+        <pre><code class="language-cs">[Command("help")]
+[Summary("Shows all available commands")]
+public async Task HelpCommand(string? commandName = null)
+{
+    if (commandName != null)
+    {
+        // Show help for specific command
+        var command = Context.CommandService.Search(commandName);
+        if (command == null)
+        {
+            await ReplyAsync($"Command '{commandName}' not found.");
+            return;
+        }
+
+        var paramInfo = string.Join(" ", command.Parameters.Select(p =>
+        {
+            var name = p.Name;
+            if (p.IsOptional) name = $"[{name}]";
+            if (p.IsRemainder) name += "...";
+            return name;
+        }));
+
+        await ReplyAsync($"**{command.Name}** {paramInfo}\n{command.Summary}");
+    }
+    else
+    {
+        // Show all commands
+        var modules = Context.CommandService.Modules;
+        var helpText = "**Available Commands:**\n\n";
+
+        foreach (var module in modules)
+        {
+            helpText += $"**{module.Name}:**\n";
+            foreach (var cmd in module.Commands)
+            {
+                helpText += $"• `/{cmd.Name}` - {cmd.Summary}\n";
+            }
+            helpText += "\n";
+        }
+
+        await ReplyAsync(helpText);
+    }
+}</code></pre>
+
+        <h2>Best Practices</h2>
+
+        <h3>1. Use Descriptive Command Names</h3>
+        <pre><code class="language-cs">// Good
+[Command("userinfo")]
+[Command("serverinfo")]
+
+// Avoid
+[Command("ui")]
+[Command("si")]</code></pre>
+
+        <h3>2. Provide Summaries for All Commands</h3>
+        <pre><code class="language-cs">[Command("kick")]
+[Summary("Kicks a member from the guild")]  // Always include
+public async Task KickCommand(ulong userId) { }</code></pre>
+
+        <h3>3. Use Appropriate Parameter Types</h3>
+        <pre><code class="language-cs">// Good: Using ulong for IDs
+[Command("getuser")]
+public async Task GetUserCommand(ulong userId) { }
+
+// Bad: Using string when a specific type is better
+[Command("getuser")]
+public async Task GetUserCommand(string userId) { }</code></pre>
+
+        <h3>4. Handle Errors Gracefully</h3>
+        <pre><code class="language-cs">[Command("divide")]
+public async Task DivideCommand(double a, double b)
+{
+    if (b == 0)
+    {
+        await ReplyAsync("Cannot divide by zero!");
+        return;
+    }
+    await ReplyAsync($"{a} / {b} = {a / b}");
+}</code></pre>
+
+        <h2>Related Guides</h2>
+        <ul>
+            <li><a href="/guides/embed-builder.html">EmbedBuilder Guide</a></li>
+            <li><a href="/guides/gateway-client.html">Gateway Client Reference</a></li>
+            <li><a href="/guides/api-client.html">API Client Reference</a></li>
+            <li><a href="/tutorials/first-bot/3.commands.html">Your First Command Tutorial</a></li>
+        </ul>
+    </template>
+    <script src="/assets/scripts/loader.js"></script>
+
+    <script src="/assets/ext/shikijs/dist/index.unpkg.iife.js"></script>
+    <script>
+        shiki.setCDN("/assets/ext/shikijs");
+
+        shiki.loadTheme('themes/dracula.json').then(theme =>
+            shiki.getHighlighter({theme: theme, langs: ['cs']}).then(hl => {
+                document.querySelectorAll('pre code').forEach(block => {
+                    const lang = block.className.replace('language-', '');
+                    const highlighted = hl.codeToHtml(block.textContent, { lang: lang });
+                    block.parentElement.outerHTML = highlighted;
+                });
+            })
+        );
+    </script>
+</body>

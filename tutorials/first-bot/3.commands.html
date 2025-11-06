@@ -217,34 +217,19 @@ async Task HandleUserInfoCommand(Message message, string[] args)
 }</code></pre>
 
         <h2>Message Embeds</h2>
-        <p>For more visually appealing responses, you can use embeds:</p>
+        <p>For more visually appealing responses, you can use embeds. Fluxer.Net now includes an <code>EmbedBuilder</code> that makes creating embeds much easier:</p>
 
-        <pre><code class="language-cs">var embed = new Embed
-{
-    Title = "Bot Information",
-    Description = "I'm a bot built with Fluxer.Net!",
-    Color = 0x5865F2, // Blue color
-    Fields = new List<EmbedField>
-    {
-        new EmbedField
-        {
-            Name = "Library",
-            Value = "Fluxer.Net",
-            Inline = true
-        },
-        new EmbedField
-        {
-            Name = "Version",
-            Value = "1.0.0",
-            Inline = true
-        }
-    },
-    Footer = new EmbedFooter
-    {
-        Text = "Made with Fluxer.Net"
-    },
-    Timestamp = DateTime.UtcNow
-};
+        <pre><code class="language-cs">using Fluxer.Net.EmbedBuilder;
+
+var embed = new EmbedBuilder()
+    .WithTitle("Bot Information")
+    .WithDescription("I'm a bot built with Fluxer.Net!")
+    .WithColor(0x5865F2) // Blue color
+    .AddField("Library", "Fluxer.Net", inline: true)
+    .AddField("Version", "1.0.0", inline: true)
+    .WithFooter("Made with Fluxer.Net")
+    .WithCurrentTimestamp()
+    .Build();
 
 var msg = new Message
 {
@@ -253,6 +238,8 @@ var msg = new Message
 };
 
 await apiClient.SendMessage(message.ChannelId, msg);</code></pre>
+
+        <p>See the <a href="/guides/embed-builder.html">EmbedBuilder Guide</a> for more examples and advanced usage.</p>
 
         <h2>Best Practices</h2>
 
@@ -296,9 +283,44 @@ await apiClient.SendMessage(channelId, new Message { Content = content });</code
     // Proceed with ban...
 }</code></pre>
 
+        <h2>Using the CommandService Framework</h2>
+        <p>While the manual command parsing shown above works well, Fluxer.Net now includes a powerful <code>CommandService</code> framework that makes building complex command bots much easier:</p>
+
+        <pre><code class="language-cs">using Fluxer.Net.Commands;
+using Fluxer.Net.Commands.Attributes;
+
+// Create the command service
+var commands = new CommandService(prefixChar: '/', logger: Log.Logger as Logger);
+
+// Register all command modules from your assembly
+await commands.AddModulesAsync(Assembly.GetExecutingAssembly());
+
+// In your MessageCreate handler
+gateway.MessageCreate += async messageData =>
+{
+    if (messageData.Author == null) return;
+
+    int argPos = 0;
+    if (messageData.Content?.StartsWith('/') == true)
+    {
+        argPos = 1;
+        var context = new CommandContext(api, gateway, messageData);
+        var result = await commands.ExecuteAsync(context, argPos);
+
+        if (!result.IsSuccess)
+        {
+            Log.Warning("Command failed: {Error}", result.Error);
+        }
+    }
+};</code></pre>
+
+        <p>The CommandService provides automatic argument parsing, type conversion, preconditions, and much more. See the <a href="/guides/command-service.html">CommandService Guide</a> for complete documentation and examples.</p>
+
         <h2>Next Steps</h2>
         <p>Congratulations! You now have a working command bot. Here are some ideas to expand your bot:</p>
         <ul>
+            <li>Use the <a href="/guides/command-service.html">CommandService framework</a> for advanced command handling</li>
+            <li>Create rich embeds with the <a href="/guides/embed-builder.html">EmbedBuilder</a></li>
             <li>Add permission checking to restrict commands to certain users or roles</li>
             <li>Implement cooldowns to prevent command spam</li>
             <li>Add database storage for persistent data</li>
@@ -308,6 +330,8 @@ await apiClient.SendMessage(channelId, new Message { Content = content });</code
 
         <p>Check out the reference documentation to learn about all available API methods and gateway events:</p>
         <ul>
+            <li><a href="/guides/command-service.html">Command Service Guide</a></li>
+            <li><a href="/guides/embed-builder.html">EmbedBuilder Guide</a></li>
             <li><a href="/guides/api-client.html">API Client Reference</a></li>
             <li><a href="/guides/gateway-client.html">Gateway Client Reference</a></li>
             <li><a href="/guides/events.html">Gateway Events Reference</a></li>
