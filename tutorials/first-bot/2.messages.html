@@ -148,8 +148,27 @@ await Task.Delay(-1);</code></pre>
             <li><strong>Async/Await:</strong> Most Fluxer.Net methods are asynchronous and should be awaited</li>
         </ul>
 
+        <h2>Message Events vs Commands</h2>
+        <p>The <code>MessageCreate</code> event shown in this tutorial is useful for:</p>
+        <ul>
+            <li>Logging messages</li>
+            <li>Content moderation (filtering profanity, spam detection)</li>
+            <li>Reacting to specific keywords or patterns</li>
+            <li>Analyzing message content for analytics</li>
+        </ul>
+
+        <p>However, for building a bot with <strong>commands</strong> (like <code>/ping</code>, <code>/help</code>, etc.), you should use the <strong>CommandService framework</strong> instead of manually parsing messages in the MessageCreate event. The CommandService provides:</p>
+        <ul>
+            <li>Automatic command detection and routing</li>
+            <li>Argument parsing and type conversion</li>
+            <li>Built-in error handling and validation</li>
+            <li>Organized command structure using modules</li>
+        </ul>
+
+        <p>In the next tutorial, you'll learn how to use the CommandService to build a proper command bot!</p>
+
         <h2>Next Steps</h2>
-        <p>Now that your bot can receive and respond to messages, let's create a more structured command system.</p>
+        <p>Now that your bot can receive and respond to messages, let's create a structured command system using the CommandService framework.</p>
 
         <div class="navigation">
             <a href="/tutorials/first-bot/1.create.html" class="prev-link">← Previous: Creating a Bot</a>

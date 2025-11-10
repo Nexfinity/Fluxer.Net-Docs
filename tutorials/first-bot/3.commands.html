@@ -12,20 +12,23 @@
     <template id="content">
         <h1>Your First Command</h1>
 
-        <p>In this tutorial, we'll create a proper command system with a command prefix and multiple commands.</p>
+        <p>In this tutorial, we'll create a command bot using Fluxer.Net's powerful <code>CommandService</code> framework. This framework provides automatic argument parsing, type conversion, and a clean module-based structure for organizing your commands.</p>
 
-        <h2>Command Structure</h2>
-        <p>A typical bot command consists of:</p>
+        <h2>What is the CommandService?</h2>
+        <p>The <code>CommandService</code> is a framework that makes building command bots easy by handling:</p>
         <ul>
-            <li><strong>Prefix:</strong> A character or string that identifies bot commands (e.g., <code>!</code>, <code>?</code>, <code>/</code>)</li>
-            <li><strong>Command Name:</strong> The action to perform (e.g., <code>ping</code>, <code>help</code>, <code>info</code>)</li>
-            <li><strong>Arguments:</strong> Optional parameters for the command (e.g., <code>!ban @user spam</code>)</li>
+            <li><strong>Automatic command discovery:</strong> Commands are defined using attributes</li>
+            <li><strong>Argument parsing:</strong> Automatically converts string arguments to the correct types</li>
+            <li><strong>Command organization:</strong> Commands are grouped into modules for better structure</li>
+            <li><strong>Error handling:</strong> Built-in validation and error messages</li>
         </ul>
 
-        <h2>Basic Command Handler</h2>
-        <p>Let's create a simple command handler that responds to <code>!ping</code> and <code>!hello</code> commands:</p>
+        <h2>Setting Up the CommandService</h2>
+        <p>First, let's set up the basic bot with the CommandService:</p>
 
-        <pre><code class="language-cs">using Fluxer.Net;
+        <pre><code class="language-cs">using System.Reflection;
+using Fluxer.Net;
+using Fluxer.Net.Commands;
 using Fluxer.Net.Data.Models;
 using Serilog;
 
@@ -35,7 +38,6 @@ Log.Logger = new LoggerConfiguration()
     .CreateLogger();
 
 const string token = "YOUR_TOKEN_HERE";
-const string prefix = "!";
 
 var config = new FluxerConfig
 {
@@ -45,296 +47,333 @@ var config = new FluxerConfig
 var apiClient = new ApiClient(token, config);
 var gatewayClient = new GatewayClient(token, config);
 
+// Create the CommandService with '/' as the prefix
+var commands = new CommandService(
+    prefixChar: '/',
+    logger: Log.Logger,
+    services: null
+);
+
+// Register all command modules from your assembly
+await commands.AddModulesAsync(Assembly.GetExecutingAssembly());
+
 gatewayClient.Ready += (data) =>
 {
     Log.Information("Bot ready! Logged in as {Username}", data.User.Username);
 };
 
+// Handle incoming messages and execute commands
 gatewayClient.MessageCreate += async (data) =>
 {
-    var message = data.Message;
+    // Ignore messages without an author (system messages, webhooks)
+    if (data.Author == null) return;
 
-    // Ignore our own messages
-    if (message.Author.Id == data.User.Id)
-        return;
-
-    // Check if message starts with prefix
-    if (!message.Content.StartsWith(prefix))
-        return;
-
-    // Parse command and arguments
-    var content = message.Content[prefix.Length..];
-    var parts = content.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-
-    if (parts.Length == 0)
-        return;
-
-    var command = parts[0].ToLower();
-    var args = parts.Skip(1).ToArray();
-
-    // Handle commands
-    try
+    // Check if message starts with the prefix
+    int argPos = 0;
+    if (data.Content?.StartsWith('/') == true)
     {
-        switch (command)
+        argPos = 1; // Skip the prefix character
+
+        // Create a command context
+        var context = new CommandContext(apiClient, gatewayClient, data);
+
+        // Execute the command
+        var result = await commands.ExecuteAsync(context, argPos);
+
+        // Handle errors
+        if (!result.IsSuccess)
         {
-            case "ping":
-                await HandlePingCommand(message);
-                break;
+            Log.Warning("Command failed: {Error}", result.Error);
 
-            case "hello":
-                await HandleHelloCommand(message, args);
-                break;
-
-            case "help":
-                await HandleHelpCommand(message);
-                break;
-
-            default:
-                await SendMessage(message.ChannelId,
-                    $"Unknown command. Use `{prefix}help` for a list of commands.");
-                break;
+            // Optionally send error message to user
+            if (result.ErrorType == CommandError.BadArgCount ||
+                result.ErrorType == CommandError.ParseFailed)
+            {
+                await apiClient.SendMessage(data.ChannelId, new()
+                {
+                    Content = $"❌ Error: {result.Error}"
+                });
+            }
         }
-    }
-    catch (Exception ex)
-    {
-        Log.Error(ex, "Error handling command: {Command}", command);
-        await SendMessage(message.ChannelId, "An error occurred while processing your command.");
     }
 };
 
 await gatewayClient.ConnectAsync();
-await Task.Delay(-1);
+await Task.Delay(-1);</code></pre>
 
-// Command handlers
-async Task HandlePingCommand(Message message)
+        <h2>Creating Your First Command Module</h2>
+        <p>Commands are organized into modules. Create a new file called <code>BasicCommands.cs</code>:</p>
+
+        <pre><code class="language-cs">using Fluxer.Net.Commands;
+using Fluxer.Net.Commands.Attributes;
+
+namespace MyBot.Modules;
+
+public class BasicCommands : ModuleBase
 {
-    await SendMessage(message.ChannelId, "Pong!");
-}
+    [Command("ping")]
+    [Summary("Check if the bot is responsive")]
+    public async Task PingCommand()
+    {
+        await ReplyAsync("Pong!");
+    }
 
-async Task HandleHelloCommand(Message message, string[] args)
-{
-    var name = args.Length > 0 ? string.Join(" ", args) : message.Author.Username;
-    await SendMessage(message.ChannelId, $"Hello, {name}!");
-}
+    [Command("hello")]
+    [Alias("hi", "hey")]
+    [Summary("Get a friendly greeting")]
+    public async Task HelloCommand()
+    {
+        await ReplyAsync($"Hello, <@{Context.User.Id}>!");
+    }
 
-async Task HandleHelpCommand(Message message)
-{
-    var helpText = $@"**Available Commands:**
-`{prefix}ping` - Check if the bot is responsive
-`{prefix}hello [name]` - Get a greeting
-`{prefix}help` - Show this help message";
-
-    await SendMessage(message.ChannelId, helpText);
-}
-
-// Helper method to send messages
-async Task SendMessage(ulong channelId, string content)
-{
-    var msg = new Message { Content = content };
-    await apiClient.SendMessage(channelId, msg);
+    [Command("info")]
+    [Summary("Show bot information")]
+    public async Task InfoCommand()
+    {
+        await ReplyAsync(
+            "**My Bot**\n" +
+            "Built with Fluxer.Net\n\n" +
+            "Available Commands:\n" +
+            "• `/ping` - Check if bot is responsive\n" +
+            "• `/hello` - Get a greeting\n" +
+            "• `/info` - Show this information"
+        );
+    }
 }</code></pre>
 
-        <h2>Understanding the Code</h2>
+        <h2>Understanding Command Modules</h2>
 
-        <h3>Command Parsing</h3>
-        <pre><code class="language-cs">// Check if message starts with prefix
-if (!message.Content.StartsWith(prefix))
-    return;
-
-// Remove prefix and split into parts
-var content = message.Content[prefix.Length..];
-var parts = content.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-
-var command = parts[0].ToLower();
-var args = parts.Skip(1).ToArray();</code></pre>
-
-        <p>This code:</p>
-        <ol>
-            <li>Checks if the message starts with the prefix</li>
-            <li>Removes the prefix from the message</li>
-            <li>Splits the message into words</li>
-            <li>Takes the first word as the command name</li>
-            <li>Takes remaining words as arguments</li>
-        </ol>
-
-        <h3>Command Routing</h3>
-        <p>The <code>switch</code> statement routes to the appropriate command handler based on the command name.</p>
-
-        <h3>Error Handling</h3>
-        <p>The try-catch block ensures that if a command handler throws an exception, the bot doesn't crash and can inform the user.</p>
-
-        <h2>Testing Your Commands</h2>
-        <p>Run your bot and try these commands in a channel:</p>
+        <h3>ModuleBase</h3>
+        <p>All command modules must inherit from <code>ModuleBase</code>, which provides:</p>
         <ul>
-            <li><code>!ping</code> - Should respond with "Pong!"</li>
-            <li><code>!hello</code> - Should greet you by username</li>
-            <li><code>!hello World</code> - Should respond with "Hello, World!"</li>
-            <li><code>!help</code> - Should list all available commands</li>
+            <li><code>Context</code> - Access to the message, user, channel, and API clients</li>
+            <li><code>ReplyAsync()</code> - Helper method to send a message to the current channel</li>
         </ul>
 
-        <h2>Advanced Command Example: User Info</h2>
-        <p>Let's add a more complex command that fetches and displays user information:</p>
+        <h3>Command Attributes</h3>
+        <ul>
+            <li><code>[Command("name")]</code> - Defines a command with the given name</li>
+            <li><code>[Alias("alt1", "alt2")]</code> - Alternative names for the command</li>
+            <li><code>[Summary("description")]</code> - Description of what the command does</li>
+        </ul>
 
-        <pre><code class="language-cs">case "userinfo":
-    await HandleUserInfoCommand(message, args);
-    break;
+        <h2>Commands with Parameters</h2>
+        <p>The CommandService automatically parses and converts command arguments:</p>
 
-// ...
-
-async Task HandleUserInfoCommand(Message message, string[] args)
+        <pre><code class="language-cs">public class MathCommands : ModuleBase
 {
-    // Get the target user (mentioned user or command author)
-    ulong targetUserId;
+    [Command("add")]
+    [Summary("Add two numbers together")]
+    public async Task AddCommand(int a, int b)
+    {
+        await ReplyAsync($"{a} + {b} = {a + b}");
+    }
 
-    if (message.Mentions != null && message.Mentions.Count > 0)
+    [Command("echo")]
+    [Summary("Echo back your message")]
+    public async Task EchoCommand([Remainder] string message)
     {
-        targetUserId = message.Mentions[0].Id;
+        await ReplyAsync(message);
     }
-    else
+
+    [Command("greet")]
+    [Summary("Greet someone by name")]
+    public async Task GreetCommand(string name = "stranger")
     {
-        targetUserId = message.Author.Id;
+        await ReplyAsync($"Hello, {name}!");
     }
+}</code></pre>
+
+        <h3>Parameter Types</h3>
+        <p>The CommandService supports automatic conversion for many types:</p>
+        <ul>
+            <li><code>string</code>, <code>int</code>, <code>long</code>, <code>ulong</code>, <code>bool</code></li>
+            <li><code>float</code>, <code>double</code>, <code>decimal</code></li>
+            <li><code>DateTime</code>, <code>TimeSpan</code></li>
+            <li>Enums</li>
+        </ul>
+
+        <h3>Special Attributes</h3>
+        <ul>
+            <li><code>[Remainder]</code> - Captures all remaining text as one parameter (useful for messages)</li>
+            <li>Optional parameters - Use default values like <code>string name = "stranger"</code></li>
+        </ul>
+
+        <h2>Advanced Example: User Info Command</h2>
+        <p>Here's a more complex command that fetches user information:</p>
+
+        <pre><code class="language-cs">[Command("userinfo")]
+[Summary("Get information about a user")]
+public async Task UserInfoCommand(ulong? userId = null)
+{
+    // Use provided user ID or default to command author
+    ulong targetId = userId ?? Context.User.Id;
 
     try
     {
-        // Fetch user data from API
-        var user = await apiClient.GetUser(targetUserId);
+        var user = await Context.Client.GetUser(targetId);
 
-        // Build response with user information
         var info = $@"**User Information**
 **Username:** {user.Username}
 **ID:** {user.Id}
 **Created:** {user.CreatedAt:MMM dd, yyyy}
 **Premium:** {(user.Premium > 0 ? "Yes" : "No")}";
 
-        await SendMessage(message.ChannelId, info);
+        await ReplyAsync(info);
     }
     catch (Exception ex)
     {
-        Log.Error(ex, "Failed to fetch user info for {UserId}", targetUserId);
-        await SendMessage(message.ChannelId, "Failed to fetch user information.");
+        await ReplyAsync("Failed to fetch user information.");
     }
 }</code></pre>
 
-        <h2>Message Embeds</h2>
-        <p>For more visually appealing responses, you can use embeds. Fluxer.Net now includes an <code>EmbedBuilder</code> that makes creating embeds much easier:</p>
+        <h2>Using Embeds in Commands</h2>
+        <p>For more visually appealing responses, you can use embeds with the <code>EmbedBuilder</code>:</p>
 
-        <pre><code class="language-cs">using Fluxer.Net.EmbedBuilder;
+        <pre><code class="language-cs">using Fluxer.Net.Data.Models;
+using Fluxer.Net.EmbedBuilder;
 
-var embed = new EmbedBuilder()
-    .WithTitle("Bot Information")
-    .WithDescription("I'm a bot built with Fluxer.Net!")
-    .WithColor(0x5865F2) // Blue color
-    .AddField("Library", "Fluxer.Net", inline: true)
-    .AddField("Version", "1.0.0", inline: true)
-    .WithFooter("Made with Fluxer.Net")
-    .WithCurrentTimestamp()
-    .Build();
-
-var msg = new Message
+[Command("embed")]
+[Summary("Show an example rich embed")]
+public async Task EmbedCommand()
 {
-    Content = "", // Can be empty when using embeds
-    Embeds = new List<Embed> { embed }
-};
+    var embed = new EmbedBuilder()
+        .WithTitle("Example Embed")
+        .WithDescription("This is a rich embed created with EmbedBuilder!")
+        .WithColor(0x5865F2) // Blue color
+        .WithAuthor(
+            name: Context.User.Username,
+            iconUrl: Context.User.Avatar != null
+                ? $"https://cdn.fluxer.dev/avatars/{Context.User.Id}/{Context.User.Avatar}.png"
+                : null
+        )
+        .AddField("Field 1", "Inline field", inline: true)
+        .AddField("Field 2", "Another inline field", inline: true)
+        .AddField("Full Width", "This field is not inline", inline: false)
+        .WithFooter("Fluxer.Net")
+        .WithCurrentTimestamp()
+        .Build();
 
-await apiClient.SendMessage(message.ChannelId, msg);</code></pre>
+    await Context.Client.SendMessage(Context.ChannelId, new()
+    {
+        Content = "Here's an embed:",
+        Embeds = new List<Embed> { embed }
+    });
+}</code></pre>
 
         <p>See the <a href="/guides/embed-builder.html">EmbedBuilder Guide</a> for more examples and advanced usage.</p>
 
-        <h2>Best Practices</h2>
-
-        <h3>1. Use Async/Await Properly</h3>
-        <pre><code class="language-cs">// Good: Awaiting the API call
-await apiClient.SendMessage(channelId, message);
-
-// Bad: Not awaiting (fire and forget)
-apiClient.SendMessage(channelId, message); // Don't do this!</code></pre>
-
-        <h3>2. Handle Rate Limits</h3>
-        <p>Fluxer.Net has built-in rate limiting, but avoid sending too many messages in loops:</p>
-        <pre><code class="language-cs">// Bad: Will trigger rate limits
-for (int i = 0; i < 100; i++)
-{
-    await apiClient.SendMessage(channelId, new Message { Content = $"Spam {i}" });
-}
-
-// Good: Send one combined message
-var content = string.Join("\n", Enumerable.Range(0, 100).Select(i => $"Line {i}"));
-await apiClient.SendMessage(channelId, new Message { Content = content });</code></pre>
-
-        <h3>3. Validate User Input</h3>
-        <pre><code class="language-cs">async Task HandleBanCommand(Message message, string[] args)
-{
-    // Check if user has permissions (you'll need to implement permission checking)
-    // Check if arguments are valid
-    if (args.Length == 0)
-    {
-        await SendMessage(message.ChannelId, "Usage: !ban @user [reason]");
-        return;
-    }
-
-    // Validate mentioned user
-    if (message.Mentions == null || message.Mentions.Count == 0)
-    {
-        await SendMessage(message.ChannelId, "Please mention a user to ban.");
-        return;
-    }
-
-    // Proceed with ban...
-}</code></pre>
-
-        <h2>Using the CommandService Framework</h2>
-        <p>While the manual command parsing shown above works well, Fluxer.Net now includes a powerful <code>CommandService</code> framework that makes building complex command bots much easier:</p>
-
-        <pre><code class="language-cs">using Fluxer.Net.Commands;
-using Fluxer.Net.Commands.Attributes;
-
-// Create the command service
-var commands = new CommandService(prefixChar: '/', logger: Log.Logger as Logger);
-
-// Register all command modules from your assembly
-await commands.AddModulesAsync(Assembly.GetExecutingAssembly());
-
-// In your MessageCreate handler
-gateway.MessageCreate += async messageData =>
-{
-    if (messageData.Author == null) return;
-
-    int argPos = 0;
-    if (messageData.Content?.StartsWith('/') == true)
-    {
-        argPos = 1;
-        var context = new CommandContext(api, gateway, messageData);
-        var result = await commands.ExecuteAsync(context, argPos);
-
-        if (!result.IsSuccess)
-        {
-            Log.Warning("Command failed: {Error}", result.Error);
-        }
-    }
-};</code></pre>
-
-        <p>The CommandService provides automatic argument parsing, type conversion, preconditions, and much more. See the <a href="/guides/command-service.html">CommandService Guide</a> for complete documentation and examples.</p>
-
-        <h2>Next Steps</h2>
-        <p>Congratulations! You now have a working command bot. Here are some ideas to expand your bot:</p>
+        <h2>Testing Your Commands</h2>
+        <p>Run your bot and try these commands in a channel:</p>
         <ul>
-            <li>Use the <a href="/guides/command-service.html">CommandService framework</a> for advanced command handling</li>
-            <li>Create rich embeds with the <a href="/guides/embed-builder.html">EmbedBuilder</a></li>
-            <li>Add permission checking to restrict commands to certain users or roles</li>
-            <li>Implement cooldowns to prevent command spam</li>
-            <li>Add database storage for persistent data</li>
-            <li>Create moderation commands (kick, ban, mute)</li>
-            <li>Add fun commands (random jokes, games, etc.)</li>
+            <li><code>/ping</code> - Should respond with "Pong!"</li>
+            <li><code>/hello</code> - Should greet you with a mention</li>
+            <li><code>/info</code> - Should show bot information</li>
+            <li><code>/add 5 3</code> - Should respond with "5 + 3 = 8"</li>
+            <li><code>/echo Hello World</code> - Should respond with "Hello World"</li>
         </ul>
 
-        <p>Check out the reference documentation to learn about all available API methods and gateway events:</p>
+        <h2>Best Practices</h2>
+
+        <h3>1. Organize Commands into Modules</h3>
+        <p>Group related commands together in separate module classes:</p>
+        <pre><code class="language-cs">// ModerationCommands.cs
+public class ModerationCommands : ModuleBase { ... }
+
+// FunCommands.cs
+public class FunCommands : ModuleBase { ... }
+
+// UtilityCommands.cs
+public class UtilityCommands : ModuleBase { ... }</code></pre>
+
+        <h3>2. Use Descriptive Summaries</h3>
+        <p>Always include <code>[Summary]</code> attributes to document your commands:</p>
+        <pre><code class="language-cs">[Command("kick")]
+[Summary("Remove a member from the server")]
+public async Task KickCommand(ulong userId, [Remainder] string reason = "No reason")
+{
+    // Implementation
+}</code></pre>
+
+        <h3>3. Handle Errors Gracefully</h3>
+        <p>Always wrap API calls in try-catch blocks within your commands:</p>
+        <pre><code class="language-cs">[Command("getuser")]
+public async Task GetUserCommand(ulong userId)
+{
+    try
+    {
+        var user = await Context.Client.GetUser(userId);
+        await ReplyAsync($"Found user: {user.Username}");
+    }
+    catch (Exception)
+    {
+        await ReplyAsync("User not found or an error occurred.");
+    }
+}</code></pre>
+
+        <h2>Advanced Features</h2>
+        <p>The CommandService provides additional advanced features for building sophisticated bots:</p>
+
+        <h3>Command Aliases</h3>
+        <p>Allow multiple names for the same command:</p>
+        <pre><code class="language-cs">[Command("userinfo")]
+[Alias("user", "whois", "profile")]
+public async Task UserInfoCommand() { ... }</code></pre>
+
+        <h3>Preconditions</h3>
+        <p>Add requirements that must be met before a command can execute:</p>
+        <pre><code class="language-cs">using Fluxer.Net.Commands.Attributes;
+
+[Command("announce")]
+[RequireOwner] // Only bot owner can use this
+public async Task AnnounceCommand([Remainder] string message)
+{
+    await ReplyAsync($"📢 {message}");
+}
+
+[Command("ban")]
+[RequireContext(ContextType.Guild)] // Only works in guilds, not DMs
+public async Task BanCommand(ulong userId)
+{
+    // Ban logic
+}</code></pre>
+
+        <h3>Module Lifecycle Hooks</h3>
+        <p>Override methods in your module to run code before/after command execution:</p>
+        <pre><code class="language-cs">public class MyCommands : ModuleBase
+{
+    protected override void BeforeExecute()
+    {
+        // Runs before every command in this module
+        Log.Information("User {User} is running a command", Context.User.Username);
+    }
+
+    protected override void AfterExecute()
+    {
+        // Runs after every command in this module
+        Log.Information("Command completed successfully");
+    }
+}</code></pre>
+
+        <h2>Next Steps</h2>
+        <p>Congratulations! You now have a working command bot using the CommandService framework. Here are some ideas to expand your bot:</p>
         <ul>
-            <li><a href="/guides/command-service.html">Command Service Guide</a></li>
-            <li><a href="/guides/embed-builder.html">EmbedBuilder Guide</a></li>
-            <li><a href="/guides/api-client.html">API Client Reference</a></li>
-            <li><a href="/guides/gateway-client.html">Gateway Client Reference</a></li>
-            <li><a href="/guides/events.html">Gateway Events Reference</a></li>
+            <li>Explore the <a href="/guides/command-service.html">CommandService Guide</a> for advanced features like preconditions and dependency injection</li>
+            <li>Create rich embeds with the <a href="/guides/embed-builder.html">EmbedBuilder</a></li>
+            <li>Add custom preconditions for permission checking</li>
+            <li>Implement cooldowns using module lifecycle hooks</li>
+            <li>Add database storage for persistent data</li>
+            <li>Create multiple command modules for different features (moderation, fun, utility)</li>
+            <li>Use dependency injection to share services across commands</li>
+        </ul>
+
+        <p>Check out the reference documentation to learn more:</p>
+        <ul>
+            <li><a href="/guides/command-service.html">Command Service Guide</a> - Complete CommandService documentation</li>
+            <li><a href="/guides/embed-builder.html">EmbedBuilder Guide</a> - Create rich embeds</li>
+            <li><a href="/guides/api-client.html">API Client Reference</a> - All available API methods</li>
+            <li><a href="/guides/gateway-client.html">Gateway Client Reference</a> - Real-time events</li>
+            <li><a href="/guides/events.html">Gateway Events Reference</a> - Event documentation</li>
         </ul>
 
         <div class="navigation">
