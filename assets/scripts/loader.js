@@ -16,10 +16,14 @@ var inject = `
 <details open>
     <summary class="tutorial-header" id="guides-title">Guides</summary>
     <a class="tutorial-item" id="guide-config" href="/guides/configuration.html">Configuration</a>
+    <a class="tutorial-item" id="guide-commands" href="/guides/command-service.html">Command Service</a>
+    <a class="tutorial-item" id="guide-preconditions" href="/guides/preconditions.html">Custom Preconditions</a>
+    <a class="tutorial-item" id="guide-embeds" href="/guides/embed-builder.html">EmbedBuilder</a>
     <a class="tutorial-item" id="guide-api" href="/guides/api-client.html">API Client</a>
     <a class="tutorial-item" id="guide-gateway" href="/guides/gateway-client.html">Gateway Client</a>
     <a class="tutorial-item" id="guide-events" href="/guides/events.html">Events Reference</a>
     <a class="tutorial-item" id="guide-ratelimit" href="/guides/rate-limiting.html">Rate Limiting</a>
+    <a class="tutorial-item" id="guide-voice" href="/guides/voice-client.html">Voice Client (ALPHA)</a>
 </details>
 </div>
 <div class="true-content">
