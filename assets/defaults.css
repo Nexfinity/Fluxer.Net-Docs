@@ -56,8 +56,11 @@ body {
 }
 
 .tutorial-item {
+    display: block;
     margin-left: 1.5vw;
     margin-top: 0.5vh;
+    margin-bottom: 0.5vh;
+    word-wrap: break-word;
 }
 
 .content {
