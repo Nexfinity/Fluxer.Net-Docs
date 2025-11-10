@@ -332,6 +332,10 @@ gatewayClient.GuildBanRemove += (data) =>
 
         <h2 id="voice">Voice Events</h2>
 
+        <p style="background-color: #FEE75C; color: #2C2C2C; padding: 10px; border-radius: 4px; border-left: 4px solid #F0C419;">
+            <strong>⚠️ Note:</strong> Voice functionality in Fluxer.Net is in very early alpha. See the <a href="/guides/voice-client.html" style="color: #2C2C2C; text-decoration: underline;">Voice Client Guide</a> for current limitations.
+        </p>
+
         <h3>VoiceStateUpdate</h3>
         <p>Fires when a user joins, leaves, or updates their state in a voice channel.</p>
         <pre><code class="language-cs">gatewayClient.VoiceStateUpdate += (data) =>
@@ -342,15 +346,20 @@ gatewayClient.GuildBanRemove += (data) =>
     // data.SessionId - Voice session ID
     // data.Deaf - Whether user is deafened
     // data.Mute - Whether user is muted
+    // data.SelfDeaf - Whether user self-deafened
+    // data.SelfMute - Whether user self-muted
 };</code></pre>
 
         <h3>VoiceServerUpdate</h3>
         <p>Fires when voice server information is updated (used for establishing voice connections).</p>
         <pre><code class="language-cs">gatewayClient.VoiceServerUpdate += (data) =>
 {
-    // data.Token - Voice authentication token
+    // data.Token - Voice authentication token (LiveKit JWT)
     // data.GuildId - Guild ID
-    // data.Endpoint - Voice server endpoint
+    // data.Endpoint - Voice server endpoint (LiveKit server)
+
+    // These events are needed to establish a voice connection
+    // See /guides/voice-client.html for usage
 };</code></pre>
 
         <h2 id="relationships">Relationship Events</h2>
