@@ -102,6 +102,15 @@ body {
     bottom: 3vh;
 }
 
+a {
+    color: var(--theme-alt-background);
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
 a.header-button {
     text-decoration: none;
 }
