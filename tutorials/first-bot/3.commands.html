@@ -65,8 +65,9 @@ gatewayClient.Ready += (data) =>
 // Handle incoming messages and execute commands
 gatewayClient.MessageCreate += async (data) =>
 {
-    // Ignore messages without an author (system messages, webhooks)
-    if (data.Author == null) return;
+    // Ignore messages without an author (system messages, webhooks) and other bots to prevent spam loops
+    if (data.Author == null || data.Author.IsBot)
+        return;
 
     // Check if message starts with the prefix
     int argPos = 0;

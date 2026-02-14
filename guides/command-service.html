@@ -73,8 +73,8 @@ public class BasicCommands : ModuleBase
         <h3>3. Execute Commands</h3>
         <pre><code class="language-cs">gateway.MessageCreate += async messageData =>
 {
-    // Ignore messages without an author (webhooks, system messages)
-    if (messageData.Author == null)
+    // Ignore messages without an author (webhooks, system messages) and other bots to prevent spam loops
+    if (data.Author == null || data.Author.IsBot)
         return;
 
     // Check if message starts with the command prefix
