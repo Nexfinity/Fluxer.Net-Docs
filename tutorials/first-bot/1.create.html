@@ -31,6 +31,16 @@ dotnet add package Fluxer.Net</code></pre>
         <h2>Getting Your Token</h2>
         <p>To connect your bot to Fluxer, you'll need an authentication token. There are two types of tokens you can use:</p>
 
+        <h3>Bot Token (Application Bots)</h3>
+        <p>Bot tokens are the proper way to create and manage a bot. To obtain a user token:</p>
+        <ol>
+            <li>Log into your Fluxer account through the web or desktop client</li>
+            <li>Open your user Settings.</li>
+            <li>Navigate to Developer > Applications</li>
+            <li>Follow the steps to create a bot application</li>
+            <li>Find the <code>token</code> key and copy its value</li>
+        </ol>
+
         <h3>User Token (User Bots)</h3>
         <p>User tokens allow your bot to act as a regular user account. To obtain a user token:</p>
         <ol>
@@ -39,6 +49,15 @@ dotnet add package Fluxer.Net</code></pre>
             <li>Navigate to Application > Local Storage > https://fluxer.app</li>
             <li>Find the <code>token</code> key and copy its value</li>
         </ol>
+
+        <div style="background-color: #3ca1fa; color: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 6px solid #0c477a;">
+            <h2 style="margin-top: 0; color: white;">Token Prefixes Notice</h2>
+            <p style="margin-bottom: 0;"><strong>User and bot tokens require different prefixes:</strong></p>
+            <ul style="margin-bottom: 0;">
+                <li>User Tokens: User tokens will automatically be prefixed with `flx_`</li>
+                <li>Bot Tokens: You will need to add a `Bot ` prefix (including the space) before the token,</strong></li>
+            </ul>
+        </div>
 
         <p><strong>Warning:</strong> Never share your token with anyone. Anyone with your token can access your account.</p>
 
@@ -94,7 +113,7 @@ await Task.Delay(-1);</code></pre>
         <p>Your bot is now connected, but it doesn't do anything yet. In the next tutorial, we'll learn how to receive and respond to messages.</p>
 
         <div class="navigation">
-            <a href="/tutorials/first-bot/2.messages.html" class="next-link">Next: Receiving Messages ’</a>
+            <a href="/tutorials/first-bot/2.messages.html" class="next-link">Next: Receiving Messages ï¿½</a>
         </div>
     </template>
     <script src="/assets/scripts/loader.js"></script>
