@@ -428,7 +428,6 @@ var services = new ServiceCollection()
     .BuildServiceProvider();
 
 var commands = new CommandService(
-    prefixChar: '/',
     logger: Log.Logger,
     services: services  // Pass services here
 );

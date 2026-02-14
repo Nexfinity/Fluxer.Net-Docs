@@ -33,7 +33,6 @@
 using Serilog;
 
 var commands = new CommandService(
-    prefixChar: '/',  // Commands start with /
     logger: Log.Logger as Logger,  // Optional: for command logging
     services: null  // Optional: for dependency injection
 );
