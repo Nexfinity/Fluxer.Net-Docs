@@ -47,9 +47,8 @@ var config = new FluxerConfig
 var apiClient = new ApiClient(token, config);
 var gatewayClient = new GatewayClient(token, config);
 
-// Create the CommandService with '/' as the prefix
+// Create the CommandService
 var commands = new CommandService(
-    prefixChar: '/',
     logger: Log.Logger,
     services: null
 );
